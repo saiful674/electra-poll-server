@@ -58,7 +58,7 @@ async function run() {
       const query = { email: email };
       const findVoters = await votersCollection.findOne(query);
       if (findVoters) {
-        // if manager already add voter sedfadf
+        // if manager already add voter
         const previousVoters = findVoters.voters;
         const newVoters = [...previousVoters, voter];
         console.log(previousVoters, voter);
@@ -106,9 +106,12 @@ async function run() {
       const result = await electionCollection.findOne({ _id: new ObjectId(id) })
       res.send(result)
     })
-    app.get('/election', async (req, res) => {
-      const result = await electionCollection.find().toArray()
-      res.send(result)
+
+    app.get("/elections/:email", async(req,res)=>{
+      const { email } = req.params;
+      const query = { email: email };
+      const result = await electionCollection.find(query).toArray();
+      res.send(result);
     })
 
     // Send a ping to confirm a successful connection
