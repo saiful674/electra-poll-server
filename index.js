@@ -106,6 +106,10 @@ async function run() {
       const result = await electionCollection.findOne({ _id: new ObjectId(id) })
       res.send(result)
     })
+    app.get('/election', async (req, res) => {
+      const result = await electionCollection.find()
+      res.send(result)
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
