@@ -29,6 +29,40 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
+    const database = client.db("electraPollDB");
+    const userCollection = database.collection("users");
+
+// .............Authentication related api
+   // Users
+   app.post("/users", async (req, res) => {
+    const user = req.body;
+    const query = { email: user.email };
+    const existingUser = await userCollection.findOne(query);
+    if (existingUser) {
+      return res.send({ message: "account already exist" });
+    }
+    const result = await userCollection.insertOne(user);
+    res.send(result);
+  });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const votersCollection = client.db("electraPollDB").collection("voters");
     const electionCollection = client.db("electraPollDB").collection("elections")
 
@@ -110,3 +144,7 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
+
+app.listen(port, ()=>{
+    console.log(`ElectraPoll server is running on port: ${port}`)
+})
