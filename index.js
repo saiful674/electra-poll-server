@@ -107,7 +107,7 @@ async function run() {
       res.send(result)
     })
     app.get('/election', async (req, res) => {
-      const result = await electionCollection.find()
+      const result = await electionCollection.find().toArray()
       res.send(result)
     })
 
