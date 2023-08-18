@@ -12,7 +12,7 @@ app.use(express.json());
 console.log(process.env.DB_USER);
 console.log(process.env.DB_PASS);
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7p3fj4a.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -32,40 +32,28 @@ async function run() {
     const votersCollection = client.db("electraPollDB").collection("voters");
 
     // ======================voter related apis===========================
-    
-    // add voter api
-    app.patch("/add-voters/:email", async (req, res) => {
+    // get all voter by manager's email api
+    app.get("/voters/:email", async (req, res) => {
       const { email } = req.params;
-      const voter = req.body;
-      console.log(voter);
       const query = { email: email };
-      const findVoters = await votersCollection.findOne(query);
-      if (findVoters) {
-        // if manager already add voter
-        const previousVoters = findVoters.voters;
-        const newVoters = [...previousVoters, voter];
-        console.log(previousVoters, voter);
-        const updateDoc = {
-          $set: {
-            voters: newVoters,
-          },
-        };
-
-        const options = { upsert: true };
-        const result = await votersCollection.updateOne(
-          query,
-          updateDoc,
-          options
-        );
-        res.send(result);
-      } else {
-        // if manager first add a voter
-        console.log("nothing");
-        const voterInfo = { email: email, voters: [voter] };
+      const result = await votersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // add voter api
+    app.post("/add-voters", async (req, res) => {
+      const voterInfo = req.body;
+      console.log(voterInfo)
         const result = await votersCollection.insertOne(voterInfo);
         res.send(result);
-      }
     });
+
+    // delete voter api
+    app.delete('/voters/:id', async (req,res)=> {
+      const {id} = req.params;
+      const query = {_id: new ObjectId(id)}
+      const result = await votersCollection.deleteOne(query);
+      res.send(result)
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
