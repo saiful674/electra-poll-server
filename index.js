@@ -80,7 +80,6 @@ async function run() {
     app.patch('/election/:id', async (req, res) => {
       const id = req.params.id
       const election = req.body
-      delete election._id
       const result = await electionCollection.updateOne({ _id: new ObjectId(id) }, { $set: election })
       res.send(result)
     })
