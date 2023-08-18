@@ -46,73 +46,61 @@ async function run() {
     });
 
     const votersCollection = client.db("electraPollDB").collection("voters");
-    const electionCollection = client.db("electraPollDB").collection("elections")
+    const electionCollection = client
+      .db("electraPollDB")
+      .collection("elections");
 
     // ======================voter related apis===========================
 
     // add voter api
-    app.patch("/add-voters/:email", async (req, res) => {
-      const { email } = req.params;
-      const voter = req.body;
-      console.log(voter);
-      const query = { email: email };
-      const findVoters = await votersCollection.findOne(query);
-      if (findVoters) {
-        // if manager already add voter
-        const previousVoters = findVoters.voters;
-        const newVoters = [...previousVoters, voter];
-        console.log(previousVoters, voter);
-        const updateDoc = {
-          $set: {
-            voters: newVoters,
-          },
-        };
-
-        const options = { upsert: true };
-        const result = await votersCollection.updateOne(
-          query,
-          updateDoc,
-          options
-        );
-        res.send(result);
-      } else {
-        // if manager first add a voter
-        console.log("nothing");
-        const voterInfo = { email: email, voters: [voter] };
-        const result = await votersCollection.insertOne(voterInfo);
-        res.send(result);
-      }
+    app.post("/add-voters", async (req, res) => {
+      const voterInfo = req.body;
+      console.log(voterInfo);
+      const result = await votersCollection.insertOne(voterInfo);
+      res.send(result);
     });
 
+    // delete voter api
+    app.delete("/voters/:id", async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await votersCollection.deleteOne(query);
+      res.send(result);
+    });
+    
     // =============== add elections ============
-    app.post('/add-election', async (req, res) => {
-      const election = req.body
-      const result = await electionCollection.insertOne(election)
-      res.send(result)
-    })
-
+    app.post("/add-election", async (req, res) => {
+      const election = req.body;
+      const result = await electionCollection.insertOne(election);
+      res.send(result);
+    });
 
     // -=============== update elections ===============
-    app.patch('/election/:id', async (req, res) => {
-      const id = req.params.id
-      const election = req.body
-      delete election._id
-      const result = await electionCollection.updateOne({ _id: new ObjectId(id) }, { $set: election })
-      res.send(result)
-    })
+    app.patch("/election/:id", async (req, res) => {
+      const id = req.params.id;
+      const election = req.body;
+      delete election._id;
+      const result = await electionCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: election }
+      );
+      res.send(result);
+    });
 
-    app.get('/election/:id', async (req, res) => {
-      const id = req.params.id
-      const result = await electionCollection.findOne({ _id: new ObjectId(id) })
-      res.send(result)
-    })
+    app.get("/election/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await electionCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
 
     app.get("/elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
       const result = await electionCollection.find(query).toArray();
       res.send(result);
-    })
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -133,4 +121,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
-
