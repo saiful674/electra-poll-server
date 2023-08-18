@@ -12,7 +12,7 @@ app.use(express.json());
 console.log(process.env.DB_USER);
 console.log(process.env.DB_PASS);
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7p3fj4a.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -30,9 +30,10 @@ async function run() {
     await client.connect();
 
     const votersCollection = client.db("electraPollDB").collection("voters");
+    const electionCollection = client.db("electraPollDB").collection("elections")
 
     // ======================voter related apis===========================
-    
+
     // add voter api
     app.patch("/add-voters/:email", async (req, res) => {
       const { email } = req.params;
@@ -66,6 +67,29 @@ async function run() {
         res.send(result);
       }
     });
+
+    // =============== add elections ============
+    app.post('/add-election', async (req, res) => {
+      const election = req.body
+      const result = await electionCollection.insertOne(election)
+      res.send(result)
+    })
+
+
+    // -=============== update elections ===============
+    app.patch('/election/:id', async (req, res) => {
+      const id = req.params.id
+      const election = req.body
+      delete election._id
+      const result = await electionCollection.updateOne({ _id: new ObjectId(id) }, { $set: election })
+      res.send(result)
+    })
+
+    app.get('/election/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await electionCollection.findOne({ _id: new ObjectId(id) })
+      res.send(result)
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
