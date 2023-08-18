@@ -67,7 +67,6 @@ async function run() {
       const result = await votersCollection.deleteOne(query);
       res.send(result);
     });
-
     
     // =============== add elections ============
     app.post("/add-election", async (req, res) => {
