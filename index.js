@@ -107,22 +107,6 @@ async function run() {
       res.send(result)
     })
 
-
-    // -=============== update elections ===============
-    app.patch('/election/:id', async (req, res) => {
-      const id = req.params.id
-      const election = req.body
-      delete election._id
-      const result = await electionCollection.updateOne({ _id: new ObjectId(id) }, { $set: election })
-      res.send(result)
-    })
-
-    app.get('/election/:id', async (req, res) => {
-      const id = req.params.id
-      const result = await electionCollection.findOne({ _id: new ObjectId(id) })
-      res.send(result)
-    })
-
     app.get("/elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
