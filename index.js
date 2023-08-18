@@ -29,32 +29,10 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-<<<<<<< HEAD
     const database = client.db("electraPollDB");
     const userCollection = database.collection("users");
-=======
-    const votersCollection = client.db("electraPollDB").collection("voters");
->>>>>>> d1be7f7404b9a970063a18b850519523c02449a0
 
-    // ======================voter related apis===========================
-    // get all voter by manager's email api
-    app.get("/voters/:email", async (req, res) => {
-      const { email } = req.params;
-      const query = { email: email };
-      const result = await votersCollection.find(query).toArray();
-      res.send(result);
-    });
-    // add voter api
-    app.post("/add-voters", async (req, res) => {
-      const voterInfo = req.body;
-      console.log(voterInfo)
-        const result = await votersCollection.insertOne(voterInfo);
-        res.send(result);
-    });
-
-<<<<<<< HEAD
-
-
+// .............Authentication related api
    // Users
    app.post("/users", async (req, res) => {
     const user = req.body;
@@ -85,7 +63,24 @@ async function run() {
 
 
 
-=======
+    const votersCollection = client.db("electraPollDB").collection("voters");
+
+    // ======================voter related apis===========================
+    // get all voter by manager's email api
+    app.get("/voters/:email", async (req, res) => {
+      const { email } = req.params;
+      const query = { email: email };
+      const result = await votersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // add voter api
+    app.post("/add-voters", async (req, res) => {
+      const voterInfo = req.body;
+      console.log(voterInfo)
+        const result = await votersCollection.insertOne(voterInfo);
+        res.send(result);
+    });
+
     // delete voter api
     app.delete('/voters/:id', async (req,res)=> {
       const {id} = req.params;
@@ -93,7 +88,6 @@ async function run() {
       const result = await votersCollection.deleteOne(query);
       res.send(result)
     })
->>>>>>> d1be7f7404b9a970063a18b850519523c02449a0
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -114,3 +108,7 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
+
+app.listen(port, ()=>{
+    console.log(`ElectraPoll server is running on port: ${port}`)
+})
