@@ -58,7 +58,7 @@ async function run() {
       const query = { email: email };
       const findVoters = await votersCollection.findOne(query);
       if (findVoters) {
-        // if manager already add voter
+        // if manager already add voter sedfadf
         const previousVoters = findVoters.voters;
         const newVoters = [...previousVoters, voter];
         console.log(previousVoters, voter);
