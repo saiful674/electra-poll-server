@@ -46,32 +46,19 @@ async function run() {
   });
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     const votersCollection = client.db("electraPollDB").collection("voters");
     const electionCollection = client.db("electraPollDB").collection("elections");
 
     // ======================voter related apis===========================
-//get all election
-app.get("all-elections", async(req,res)=>{
-  const result = await electionCollection.find().toArray();
+//get  election by email address
+app.get("elections/:email", async(req,res)=>{
+  const { email } = req.params;
+  const query = { email: email };
+  const result = await electionCollection.find(query).toArray();
   res.send(result);
 })
+
+
 
     // get all voter by manager's email api
     app.get("/voters/:email", async (req, res) => {
@@ -116,6 +103,3 @@ app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
 
-app.listen(port, ()=>{
-    console.log(`ElectraPoll server is running on port: ${port}`)
-})
