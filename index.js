@@ -46,23 +46,6 @@ async function run() {
   });
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     const votersCollection = client.db("electraPollDB").collection("voters");
     const electionCollection = client.db("electraPollDB").collection("elections");
 
