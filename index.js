@@ -64,8 +64,15 @@ async function run() {
 
 
     const votersCollection = client.db("electraPollDB").collection("voters");
+    const electionCollection = client.db("electraPollDB").collection("elections");
 
     // ======================voter related apis===========================
+//get all election
+app.get("all-elections", async(req,res)=>{
+  const result = await electionCollection.find().toArray();
+  res.send(result);
+})
+
     // get all voter by manager's email api
     app.get("/voters/:email", async (req, res) => {
       const { email } = req.params;
