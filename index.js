@@ -30,7 +30,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-    const database = client.db("electrapoll");
+    const database = client.db("electraPollDB");
     const userCollection = database.collection("users");
 
 
