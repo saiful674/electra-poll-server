@@ -51,23 +51,29 @@ async function run() {
       .collection("elections");
 
     // ======================voter related apis===========================
-
+    // get all voters by manager's email
+    app.get("/voters/:email", async (req, res) => {
+      const  email  = req.params.email;
+      console.log(email);
+      const query = { email: email };
+      const result = await votersCollection.find(query).toArray();
+      res.send(result);
+    });
     // add voter api
     app.post("/add-voters", async (req, res) => {
       const voterInfo = req.body;
-      console.log(voterInfo);
       const result = await votersCollection.insertOne(voterInfo);
       res.send(result);
     });
 
     // delete voter api
     app.delete("/voters/:id", async (req, res) => {
-      const { id } = req.params;
+      const  id  = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await votersCollection.deleteOne(query);
       res.send(result);
     });
-    
+
     // =============== add elections ============
     app.post("/add-election", async (req, res) => {
       const election = req.body;
