@@ -77,7 +77,7 @@ async function run() {
     // ======================voter related apis===========================
     // get all voters by manager's email
     app.get("/voters/:email", async (req, res) => {
-      const  email  = req.params.email;
+      const email = req.params.email;
       console.log(email);
       const query = { email: email };
       const result = await votersCollection.find(query).toArray();
@@ -92,7 +92,7 @@ async function run() {
 
     // delete voter api
     app.delete("/voters/:id", async (req, res) => {
-      const  id  = req.params.id;
+      const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await votersCollection.deleteOne(query);
       res.send(result);
@@ -117,20 +117,26 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/election/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await electionCollection.findOne({
-        _id: new ObjectId(id),
-      });
-      res.send(result);
-    });
+    app.get('/election/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await electionCollection.findOne({ _id: new ObjectId(id) })
+      res.send(result)
+    })
 
+    // =================get all election per company==============
     app.get("/elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
       const result = await electionCollection.find(query).toArray();
       res.send(result);
     });
+
+    // ===============delete election==============
+    app.patch('/remove-election/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await electionCollection.deleteOne({ _id: new ObjectId(id) })
+      res.send(result)
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -145,51 +151,51 @@ async function run() {
 run().catch(console.dir);
 
 
- // =====================================chatbot apis start=======================
+// =====================================chatbot apis start=======================
 
-    // Handle incoming messages
-    app.post("/send-message", async (req, res) => {
-      const { message } = req.body;
-      console.log(message)
+// Handle incoming messages
+app.post("/send-message", async (req, res) => {
+  const { message } = req.body;
+  console.log(message)
 
 
-      const sessionPath = sessionClient.sessionPath(
-        "electrapollagent-uxap",
-        sessionID
-      );
+  const sessionPath = sessionClient.sessionPath(
+    "electrapollagent-uxap",
+    sessionID
+  );
 
-      const request = {
-        session: sessionPath,
-        queryInput: {
-          text: {
-            text: message,
-            languageCode: "en-US",
-          },
-        },
-      };
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text: message,
+        languageCode: "en-US",
+      },
+    },
+  };
 
-      try {
-        const responses = await sessionClient.detectIntent(request);
-        const result = responses[0].queryResult;
-        const botResponse = result.fulfillmentText;
+  try {
+    const responses = await sessionClient.detectIntent(request);
+    const result = responses[0].queryResult;
+    const botResponse = result.fulfillmentText;
 
-        if (message == "Welcome Message") {
-          
-          res.json({
-            response:
-              "Welcome to our website! I am ElectraPoll Agent. How can I assist you?",
-          });
-          console.log({ message });
-        } else {
-          res.json({ response: botResponse });
-        }
-      } catch (error) {
-        console.error("Error sending message to Dialogflow:", error);
-        res.status(500).json({ error: "An error occurred." });
-      }
-    });
+    if (message == "Welcome Message") {
 
-    // ================================chatbot apis end=================================
+      res.json({
+        response:
+          "Welcome to our website! I am ElectraPoll Agent. How can I assist you?",
+      });
+      console.log({ message });
+    } else {
+      res.json({ response: botResponse });
+    }
+  } catch (error) {
+    console.error("Error sending message to Dialogflow:", error);
+    res.status(500).json({ error: "An error occurred." });
+  }
+});
+
+// ================================chatbot apis end=================================
 
 
 
@@ -205,3 +211,4 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
+
