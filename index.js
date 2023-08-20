@@ -1,6 +1,10 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const bodyParser = require("body-parser");
+const { SessionsClient } = require("dialogflow");
+const path = require("path");
+
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -8,9 +12,29 @@ const app = express();
 // midlewire
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.json());
 
 console.log(process.env.DB_USER);
 console.log(process.env.DB_PASS);
+
+
+// =============================Initialize Dialogflow client start======================
+const credentialsPath = path.join(
+  __dirname,
+  "/electrapollagent-uxap-dd518e96b30c.json"
+);
+const sessionClient = new SessionsClient({
+  keyFilename: credentialsPath,
+});
+// Generate a unique session ID
+const sessionID = `${Date.now()}-${Math.random()
+  .toString(36)
+  .substring(2, 15)}`;
+console.log(sessionID);
+// ===========================Initialize Dialogflow client end=======================
+
+
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7p3fj4a.mongodb.net/?retryWrites=true&w=majority`;
@@ -119,6 +143,60 @@ async function run() {
   }
 }
 run().catch(console.dir);
+
+
+ // =====================================chatbot apis start=======================
+
+    // Handle incoming messages
+    app.post("/send-message", async (req, res) => {
+      const { message } = req.body;
+      console.log(message)
+
+
+      const sessionPath = sessionClient.sessionPath(
+        "electrapollagent-uxap",
+        sessionID
+      );
+
+      const request = {
+        session: sessionPath,
+        queryInput: {
+          text: {
+            text: message,
+            languageCode: "en-US",
+          },
+        },
+      };
+
+      try {
+        const responses = await sessionClient.detectIntent(request);
+        const result = responses[0].queryResult;
+        const botResponse = result.fulfillmentText;
+
+        if (message == "Welcome Message") {
+          
+          res.json({
+            response:
+              "Welcome to our website! I am ElectraPoll Agent. How can I assist you?",
+          });
+          console.log({ message });
+        } else {
+          res.json({ response: botResponse });
+        }
+      } catch (error) {
+        console.error("Error sending message to Dialogflow:", error);
+        res.status(500).json({ error: "An error occurred." });
+      }
+    });
+
+    // ================================chatbot apis end=================================
+
+
+
+
+
+
+
 
 app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
