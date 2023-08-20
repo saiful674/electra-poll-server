@@ -1,6 +1,10 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const bodyParser = require("body-parser");
+const { SessionsClient } = require("dialogflow");
+const path = require("path");
+
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -8,9 +12,29 @@ const app = express();
 // midlewire
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.json());
 
 console.log(process.env.DB_USER);
 console.log(process.env.DB_PASS);
+
+
+// =============================Initialize Dialogflow client start======================
+const credentialsPath = path.join(
+  __dirname,
+  "/electrapollagent-uxap-dd518e96b30c.json"
+);
+const sessionClient = new SessionsClient({
+  keyFilename: credentialsPath,
+});
+// Generate a unique session ID
+const sessionID = `${Date.now()}-${Math.random()
+  .toString(36)
+  .substring(2, 15)}`;
+console.log(sessionID);
+// ===========================Initialize Dialogflow client end=======================
+
+
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7p3fj4a.mongodb.net/?retryWrites=true&w=majority`;
@@ -46,60 +70,52 @@ async function run() {
     });
 
     const votersCollection = client.db("electraPollDB").collection("voters");
-    const electionCollection = client.db("electraPollDB").collection("elections")
+    const electionCollection = client
+      .db("electraPollDB")
+      .collection("elections");
 
     // ======================voter related apis===========================
-
-    // add voter api
-    app.patch("/add-voters/:email", async (req, res) => {
-      const { email } = req.params;
-      const voter = req.body;
-      console.log(voter);
+    // get all voters by manager's email
+    app.get("/voters/:email", async (req, res) => {
+      const email = req.params.email;
+      console.log(email);
       const query = { email: email };
-      const findVoters = await votersCollection.findOne(query);
-      if (findVoters) {
-        // if manager already add voter
-        const previousVoters = findVoters.voters;
-        const newVoters = [...previousVoters, voter];
-        console.log(previousVoters, voter);
-        const updateDoc = {
-          $set: {
-            voters: newVoters,
-          },
-        };
+      const result = await votersCollection.find(query).toArray();
+      res.send(result);
+    });
+    // add voter api
+    app.post("/add-voters", async (req, res) => {
+      const voterInfo = req.body;
+      const result = await votersCollection.insertOne(voterInfo);
+      res.send(result);
+    });
 
-        const options = { upsert: true };
-        const result = await votersCollection.updateOne(
-          query,
-          updateDoc,
-          options
-        );
-        res.send(result);
-      } else {
-        // if manager first add a voter
-        console.log("nothing");
-        const voterInfo = { email: email, voters: [voter] };
-        const result = await votersCollection.insertOne(voterInfo);
-        res.send(result);
-      }
+    // delete voter api
+    app.delete("/voters/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await votersCollection.deleteOne(query);
+      res.send(result);
     });
 
     // =============== add elections ============
-    app.post('/add-election', async (req, res) => {
-      const election = req.body
-      const result = await electionCollection.insertOne(election)
-      res.send(result)
-    })
-
+    app.post("/add-election", async (req, res) => {
+      const election = req.body;
+      const result = await electionCollection.insertOne(election);
+      res.send(result);
+    });
 
     // -=============== update elections ===============
-    app.patch('/election/:id', async (req, res) => {
-      const id = req.params.id
-      const election = req.body
-      delete election._id
-      const result = await electionCollection.updateOne({ _id: new ObjectId(id) }, { $set: election })
-      res.send(result)
-    })
+    app.patch("/election/:id", async (req, res) => {
+      const id = req.params.id;
+      const election = req.body;
+      delete election._id;
+      const result = await electionCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: election }
+      );
+      res.send(result);
+    });
 
     app.get('/election/:id', async (req, res) => {
       const id = req.params.id
@@ -107,11 +123,19 @@ async function run() {
       res.send(result)
     })
 
+    // =================get all election per company==============
     app.get("/elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
       const result = await electionCollection.find(query).toArray();
       res.send(result);
+    });
+
+    // ===============delete election==============
+    app.patch('/remove-election/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await electionCollection.deleteOne({ _id: new ObjectId(id) })
+      res.send(result)
     })
 
     // Send a ping to confirm a successful connection
@@ -125,6 +149,60 @@ async function run() {
   }
 }
 run().catch(console.dir);
+
+
+// =====================================chatbot apis start=======================
+
+// Handle incoming messages
+app.post("/send-message", async (req, res) => {
+  const { message } = req.body;
+  console.log(message)
+
+
+  const sessionPath = sessionClient.sessionPath(
+    "electrapollagent-uxap",
+    sessionID
+  );
+
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text: message,
+        languageCode: "en-US",
+      },
+    },
+  };
+
+  try {
+    const responses = await sessionClient.detectIntent(request);
+    const result = responses[0].queryResult;
+    const botResponse = result.fulfillmentText;
+
+    if (message == "Welcome Message") {
+
+      res.json({
+        response:
+          "Welcome to our website! I am ElectraPoll Agent. How can I assist you?",
+      });
+      console.log({ message });
+    } else {
+      res.json({ response: botResponse });
+    }
+  } catch (error) {
+    console.error("Error sending message to Dialogflow:", error);
+    res.status(500).json({ error: "An error occurred." });
+  }
+});
+
+// ================================chatbot apis end=================================
+
+
+
+
+
+
+
 
 app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
