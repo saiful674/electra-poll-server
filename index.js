@@ -101,17 +101,26 @@ async function run() {
       res.send(result)
     })
 
+    // ==============get single election==============
     app.get('/election/:id', async (req, res) => {
       const id = req.params.id
       const result = await electionCollection.findOne({ _id: new ObjectId(id) })
       res.send(result)
     })
 
+    // =================get all election per company==============
     app.get("/elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
       const result = await electionCollection.find(query).toArray();
       res.send(result);
+    })
+
+    // ===============delete election==============
+    app.patch('/remove-election/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await electionCollection.deleteOne({ _id: new ObjectId(id) })
+      res.send(result)
     })
 
     // Send a ping to confirm a successful connection
