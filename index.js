@@ -108,6 +108,11 @@ async function run() {
       const election = req.body;
       delete election._id;
 
+      if (election.status === 'ongoing' && election.autoDate) {
+        election.startDate = new Date()
+        election.endDate = new Date(election.startDate.getTime() + election.autoDate * 60 * 1000);
+      }
+
       if (election.startDate) {
         election.startDate = new Date(election.startDate);
       }
@@ -116,7 +121,7 @@ async function run() {
         election.endDate = new Date(election.endDate);
       }
 
-      // console.log(election);
+      console.log(election);
 
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
@@ -221,7 +226,6 @@ async function checkStatus() {
     startDate: { $lte: currentTime }
   }).toArray();
 
-
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
     await electionCollection.updateOne(
@@ -229,6 +233,8 @@ async function checkStatus() {
       { $set: { status: 'ongoing' } }
     );
   }
+
+  const hasAutoDate = await electionCollection.find()
 
   // Find elections that are 'ongoing' and should now be 'completed'
   const toBeCompleted = await electionCollection.find({
