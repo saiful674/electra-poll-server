@@ -57,6 +57,37 @@ async function run() {
     const userCollection = database.collection("users");
 
     // .............Authentication related api
+    app.get("/users/:email", async (req, res) => {
+      const  email  = req.params.email;
+      console.log(email);
+      const query = { email: email };
+      const result = await userCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // update user>>
+    app.patch("/users/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const updatedData = req.body; 
+        const result = await userCollection.updateOne(
+          { email: email },
+          { $set: updatedData }
+        );
+    
+        if (result.modifiedCount > 0) {
+          res.status(200).json({ message: "User data updated successfully" });
+        } else {
+          res.status(404).json({ message: "User not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+  
+    
+
     // Users
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -245,6 +276,8 @@ async function checkStatus() {
     );
   }
 }
+
+
 
 
 app.get("/", (req, res) => {
