@@ -1,4 +1,5 @@
 const express = require("express");
+const schedule = require('node-schedule');
 const cors = require("cors");
 require("dotenv").config();
 const bodyParser = require("body-parser");
@@ -13,9 +14,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
-
-console.log(process.env.DB_USER);
-console.log(process.env.DB_PASS);
 
 
 // =============================Initialize Dialogflow client start======================
@@ -48,6 +46,8 @@ const client = new MongoClient(uri, {
   },
 });
 
+const electionCollection = client.db("electraPollDB").collection("elections");
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -70,9 +70,6 @@ async function run() {
     });
 
     const votersCollection = client.db("electraPollDB").collection("voters");
-    const electionCollection = client
-      .db("electraPollDB")
-      .collection("elections");
 
     // ======================voter related apis===========================
     // get all voters by manager's email
@@ -110,6 +107,17 @@ async function run() {
       const id = req.params.id;
       const election = req.body;
       delete election._id;
+
+      if (election.startDate) {
+        election.startDate = new Date(election.startDate);
+      }
+
+      if (election.endDate) {
+        election.endDate = new Date(election.endDate);
+      }
+
+      // console.log(election);
+
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
@@ -199,9 +207,44 @@ app.post("/send-message", async (req, res) => {
 
 
 
+// =============================handle elelction status based on starttime endtime============================
+setInterval(() => {
+  checkStatus()
+}, 20000);
+
+async function checkStatus() {
+  const currentTime = new Date();
+
+  // Find elections that are 'published' and should now be 'ongoing'
+  const toBeOngoing = await electionCollection.find({
+    status: 'published',
+    startDate: { $lte: currentTime }
+  }).toArray();
 
 
+  // Update these elections to 'ongoing'
+  for (let election of toBeOngoing) {
+    await electionCollection.updateOne(
+      { _id: new ObjectId(election._id) },
+      { $set: { status: 'ongoing' } }
+    );
+  }
 
+  // Find elections that are 'ongoing' and should now be 'completed'
+  const toBeCompleted = await electionCollection.find({
+    status: 'ongoing',
+    endDate: { $lte: currentTime } // use $lte, not $gte
+  }).toArray();
+
+
+  // Update these elections to 'completed'
+  for (let election of toBeCompleted) {
+    await electionCollection.updateOne(
+      { _id: new ObjectId(election._id) },
+      { $set: { status: 'completed' } }
+    );
+  }
+}
 
 
 app.get("/", (req, res) => {
