@@ -1,10 +1,11 @@
 const express = require("express");
+const schedule = require("node-schedule");
 const cors = require("cors");
 require("dotenv").config();
 const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
 const path = require("path");
-
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -13,10 +14,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
-
-console.log(process.env.DB_USER);
-console.log(process.env.DB_PASS);
-
 
 // =============================Initialize Dialogflow client start======================
 const credentialsPath = path.join(
@@ -30,11 +27,8 @@ const sessionClient = new SessionsClient({
 const sessionID = `${Date.now()}-${Math.random()
   .toString(36)
   .substring(2, 15)}`;
-console.log(sessionID);
+
 // ===========================Initialize Dialogflow client end=======================
-
-
-
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7p3fj4a.mongodb.net/?retryWrites=true&w=majority`;
@@ -48,6 +42,8 @@ const client = new MongoClient(uri, {
   },
 });
 
+const electionCollection = client.db("electraPollDB").collection("elections");
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -57,6 +53,35 @@ async function run() {
     const userCollection = database.collection("users");
 
     // .............Authentication related api
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+
+      const query = { email: email };
+      const result = await userCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // update user>>
+    app.patch("/users/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const updatedData = req.body;
+        const result = await userCollection.updateOne(
+          { email: email },
+          { $set: updatedData }
+        );
+
+        if (result.modifiedCount > 0) {
+          res.status(200).json({ message: "User data updated successfully" });
+        } else {
+          res.status(404).json({ message: "User not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
     // Users
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -70,15 +95,31 @@ async function run() {
     });
 
     const votersCollection = client.db("electraPollDB").collection("voters");
-    const electionCollection = client
-      .db("electraPollDB")
-      .collection("elections");
+
+    // send email related code
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp-relay.brevo.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.email,
+        pass: process.env.email_pass,
+      },
+    });
+
+    const emailHtml = `
+    <h3> You are cordially invited to cast your vote in the upcoming </h3>
+
+    <p>We are employing a sophisticated online voting system to ensure accuracy and transparency. You have been allocated a unique voting key, granting you one-time access to this process. Please treat this key with confidentiality and avoid sharing or forwarding this communication.</p>
+    <p>hould you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact Mr. Mahmud Khan at codeCreafter@gmail.com</p>
+    `;
 
     // ======================voter related apis===========================
     // get all voters by manager's email
     app.get("/voters/:email", async (req, res) => {
       const email = req.params.email;
-      console.log(email);
+
       const query = { email: email };
       const result = await votersCollection.find(query).toArray();
       res.send(result);
@@ -111,18 +152,51 @@ async function run() {
       const id = req.params.id;
       const election = req.body;
       delete election._id;
+
+      if (election.startDate) {
+        election.startDate = new Date(election.startDate);
+      }
+
+      if (election.endDate) {
+        election.endDate = new Date(election.endDate);
+      }
+
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
       );
+      if (result && election.status === "published") {
+        const getElection = await electionCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        console.log(getElection.voterEmails);
+        const emails = [];
+
+        getElection.voterEmails?.map((e) => emails.push(e.email));
+
+        try {
+          const mailInfo = await transporter.sendMail({
+            from: "codecrafters80@gmail.com",
+            to: emails,
+            subject: "Invitation for Your Opinion",
+            html: emailHtml,
+          });
+
+          console.log("Message sent: %s", mailInfo.messageId);
+        } catch (error) {
+          console.error("Error sending email:", error);
+        }
+      }
       res.send(result);
     });
 
-    app.get('/election/:id', async (req, res) => {
-      const id = req.params.id
-      const result = await electionCollection.findOne({ _id: new ObjectId(id) })
-      res.send(result)
-    })
+    app.get("/election/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await electionCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
 
     // =================get all election per company==============
     // app.get("/elections/:email", async (req, res) => {
@@ -155,11 +229,13 @@ async function run() {
     
 
     // ===============delete election==============
-    app.patch('/remove-election/:id', async (req, res) => {
-      const id = req.params.id
-      const result = await electionCollection.deleteOne({ _id: new ObjectId(id) })
-      res.send(result)
-    })
+    app.patch("/remove-election/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await electionCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -173,14 +249,11 @@ async function run() {
 }
 run().catch(console.dir);
 
-
 // =====================================chatbot apis start=======================
 
 // Handle incoming messages
 app.post("/send-message", async (req, res) => {
   const { message } = req.body;
-  console.log(message)
-
 
   const sessionPath = sessionClient.sessionPath(
     "electrapollagent-uxap",
@@ -203,12 +276,11 @@ app.post("/send-message", async (req, res) => {
     const botResponse = result.fulfillmentText;
 
     if (message == "Welcome Message") {
-
       res.json({
         response:
           "Welcome to our website! I am ElectraPoll Agent. How can I assist you?",
       });
-      console.log({ message });
+      // console.log({ message });
     } else {
       res.json({ response: botResponse });
     }
@@ -220,12 +292,46 @@ app.post("/send-message", async (req, res) => {
 
 // ================================chatbot apis end=================================
 
+// =============================handle elelction status based on starttime endtime============================
+setInterval(() => {
+  checkStatus();
+}, 20000);
 
+async function checkStatus() {
+  const currentTime = new Date();
 
+  // Find elections that are 'published' and should now be 'ongoing'
+  const toBeOngoing = await electionCollection
+    .find({
+      status: "published",
+      startDate: { $lte: currentTime },
+    })
+    .toArray();
 
+  // Update these elections to 'ongoing'
+  for (let election of toBeOngoing) {
+    await electionCollection.updateOne(
+      { _id: new ObjectId(election._id) },
+      { $set: { status: "ongoing" } }
+    );
+  }
 
+  // Find elections that are 'ongoing' and should now be 'completed'
+  const toBeCompleted = await electionCollection
+    .find({
+      status: "ongoing",
+      endDate: { $lte: currentTime }, // use $lte, not $gte
+    })
+    .toArray();
 
-
+  // Update these elections to 'completed'
+  for (let election of toBeCompleted) {
+    await electionCollection.updateOne(
+      { _id: new ObjectId(election._id) },
+      { $set: { status: "completed" } }
+    );
+  }
+}
 
 app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
@@ -234,4 +340,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
-
