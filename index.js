@@ -55,7 +55,7 @@ async function run() {
     // .............Authentication related api
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
-      console.log(email);
+
       const query = { email: email };
       const result = await userCollection.find(query).toArray();
       res.send(result);
@@ -108,6 +108,13 @@ async function run() {
       },
     });
 
+    const emailHtml = `
+    <h3> You are cordially invited to cast your vote in the upcoming </h3>
+
+    <p>We are employing a sophisticated online voting system to ensure accuracy and transparency. You have been allocated a unique voting key, granting you one-time access to this process. Please treat this key with confidentiality and avoid sharing or forwarding this communication.</p>
+    <p>hould you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact Mr. Mahmud Khan at codeCreafter@gmail.com</p>
+    `;
+
     // ======================voter related apis===========================
     // get all voters by manager's email
     app.get("/voters/:email", async (req, res) => {
@@ -135,25 +142,7 @@ async function run() {
     // =============== add elections ============
     app.post("/add-election", async (req, res) => {
       const election = req.body;
-
-      console.log(election);
-
       const result = await electionCollection.insertOne(election);
-      if (result) {
-        try {
-          const mailInfo = await transporter.sendMail({
-            from: "codecrafters80@gmail.com", // sender address
-            to: "farukul282@gmail.com", // list of receivers
-            subject: "Invitation for Your Opinion", // Subject line
-            text: "Hello ............", // plain text body
-          });
-          console.log(election);
-          console.log("Message sent: %s", mailInfo.messageId);
-        } catch (error) {
-          console.error("Error sending email:", error);
-        }
-      }
-
       res.send(result);
     });
 
@@ -171,12 +160,32 @@ async function run() {
         election.endDate = new Date(election.endDate);
       }
 
-      // console.log(election);
-
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
       );
+      if (result && election.status === "published") {
+        const getElection = await electionCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        console.log(getElection.voterEmails);
+        const emails = [];
+
+        getElection.voterEmails?.map((e) => emails.push(e.email));
+
+        try {
+          const mailInfo = await transporter.sendMail({
+            from: "codecrafters80@gmail.com",
+            to: emails,
+            subject: "Invitation for Your Opinion",
+            html: emailHtml,
+          });
+
+          console.log("Message sent: %s", mailInfo.messageId);
+        } catch (error) {
+          console.error("Error sending email:", error);
+        }
+      }
       res.send(result);
     });
 
