@@ -83,6 +83,7 @@ async function run() {
       const result = await votersCollection.find(query).toArray();
       res.send(result);
     });
+    
     // add voter api
     app.post("/add-voters", async (req, res) => {
       const voterInfo = req.body;
@@ -124,12 +125,34 @@ async function run() {
     })
 
     // =================get all election per company==============
-    app.get("/elections/:email", async (req, res) => {
-      const { email } = req.params;
-      const query = { email: email };
-      const result = await electionCollection.find(query).toArray();
-      res.send(result);
+    // app.get("/elections/:email", async (req, res) => {
+    //   const { email } = req.params;
+    //   const query = { email: email };
+    //   const result = await electionCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+
+    app.get('/elections', async (req, res) => {
+    
+        const { email } = req.query;
+        const { status } = req.query;
+        console.log(status);
+        console.log(email);;
+
+    
+        // Query to fetch data for the specified email
+        const emailQuery = { email };
+        const emailData = await electionCollection.find(emailQuery).toArray();
+        // Query to filter emailData based on status
+        let filteredData = emailData;
+        if (status) {
+          filteredData = emailData.filter(item => item.status === status);
+        }
+        
+        res.send(filteredData);
+      
     });
+    
 
     // ===============delete election==============
     app.patch('/remove-election/:id', async (req, res) => {
