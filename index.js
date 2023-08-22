@@ -158,6 +158,8 @@ async function run() {
         election.endDate = new Date(election.endDate);
       }
 
+      console.log(election);
+
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
@@ -166,61 +168,6 @@ async function run() {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
         });
-
-        let emailHtml = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Email Template</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    margin: 0;
-                    padding: 0;
-                    border-radius: 15px;
-                }
-    
-                @media only screen and (max-width: 576px) {
-                    body {
-                        width: 100% !important;
-                    }
-                }
-    
-                @media only screen and (max-width: 376px) {
-                    body {
-                        width: 100% !important;
-                    }
-                }
-            </style>
-        </head>
-        <body style="margin: 0 auto;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                <tr>
-                    <td align="center" style="padding: 20px 0;">
-                        <img src="https://i.ibb.co/J2k86ts/logo.png" alt="Company Logo" width="150">
-                    </td>
-                </tr>
-                <tr>
-                    <td bgcolor="#f0fdf4" style="padding: 40px 20px; color: black;line-height:20px">
-                        <h3>You are cordially invited to cast your vote in the upcoming ${getElection?.title} election - ${getElection?.organization}.</h3>
-                        <p>Hello,</p>
-                        <p style="color: black">We are employing a sophisticated online voting system to ensure accuracy and transparency. You have been allocated a unique voting key, granting you one-time access to this process. Please treat this key with confidentiality and avoid sharing or forwarding this communication.</p>
-                        <p>Should you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact ${getElection?.email}</p>
-    
-                        <p>Thank you for your participation.</p>
-                    </td>
-                </tr>
-                <tr>
-                    <td bgcolor="#f4f4f4" style="text-align: center; padding: 10px 0;">
-                        <p>&copy; 2023 Electro Poll. All rights reserved.</p>
-                    </td>
-                </tr>
-            </table>
-        </body>
-        </html>
-    `;
 
         const emails = [];
 
