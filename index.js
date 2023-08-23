@@ -124,7 +124,7 @@ async function run() {
       const voterInfo = req.body;
 
       const votersList = await votersCollection.findOne({ email: voterInfo.email })
-      const matchingEmail = votersList.voters.find(voter => voter.voterEmail === voterInfo.voter.voterEmail)
+      const matchingEmail = votersList?.voters.find(voter => voter.voterEmail === voterInfo.voter.voterEmail)
 
       if (matchingEmail) {
         res.send({ exist: true })
