@@ -301,8 +301,43 @@ async function run() {
     const electionResults = [
       { candidate: "Candidate A", votes: 150 },
       { candidate: "Candidate B", votes: 200 },
+      { candidate: "Candidate C", votes: 255 },
       // ... more data
     ];
+
+    // const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
+    // const SPREADSHEET_ID = "your_spreadsheet_id";
+    // const API_KEY = "AIzaSyCGoVJW0yCtfgy1VFbihfpPP8hvuFxA_yE";
+
+    // app.get("/dwonload-election-result", async (req, res) => {
+    //   const auth = new google.auth.GoogleAuth({
+    //     keyFile: "/electrapollagent-uxap-dd518e96b30c.json",
+    //     scopes: SCOPES,
+    //   });
+
+    //   const sheets = google.sheets({ version: "v4", auth });
+
+    //   try {
+    //     const values = electionResults.map((result) => [
+    //       result.candidate,
+    //       result.votes,
+    //     ]);
+
+    //     await sheets.spreadsheets.values.append({
+    //       spreadsheetId: SPREADSHEET_ID,
+    //       range: "Sheet1", // Change to your desired sheet and range
+    //       valueInputOption: "USER_ENTERED",
+    //       resource: {
+    //         values,
+    //       },
+    //     });
+
+    //     res.status(200).send("Data exported to Google Sheet.");
+    //   } catch (error) {
+    //     console.error("Error exporting data:", error);
+    //     res.status(500).send("Error exporting data to Google Sheet.");
+    //   }
+    // });
 
     app.get("/download-election-data", (req, res) => {
       // Create a new workbook
@@ -323,7 +358,7 @@ async function run() {
           res.status(500).send("Error generating file.");
         }
         // Delete the generated file after download
-        fs.unlinkSync(excelFilePath);
+        // fs.unlinkSync(excelFilePath);
       });
     });
 
