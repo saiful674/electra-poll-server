@@ -2,7 +2,7 @@ const express = require("express");
 const schedule = require("node-schedule");
 const cors = require("cors");
 require("dotenv").config();
-const xlsx = require('xlsx');
+const xlsx = require("xlsx");
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
@@ -52,6 +52,7 @@ async function run() {
 
     const database = client.db("electraPollDB");
     const userCollection = database.collection("users");
+    const blogCollection = database.collection("blogs");
 
     // .............Authentication related api
     app.get("/users/:email", async (req, res) => {
@@ -123,13 +124,16 @@ async function run() {
     app.post("/add-voters", async (req, res) => {
       const voterInfo = req.body;
 
-      const votersList = await votersCollection.findOne({ email: voterInfo.email })
-      const matchingEmail = votersList?.voters.find(voter => voter.voterEmail === voterInfo.voter.voterEmail)
+      const votersList = await votersCollection.findOne({
+        email: voterInfo.email,
+      });
+      const matchingEmail = votersList?.voters.find(
+        (voter) => voter.voterEmail === voterInfo.voter.voterEmail
+      );
 
       if (matchingEmail) {
-        res.send({ exist: true })
-      }
-      else {
+        res.send({ exist: true });
+      } else {
         const result = await votersCollection.updateOne(
           { email: voterInfo.email },
           { $push: { voters: voterInfo.voter } },
@@ -142,14 +146,21 @@ async function run() {
     // delete voter api
     app.patch("/voters/:id", async (req, res) => {
       const id = req.params.id;
-      const email = req.body.voterEmail
+      const email = req.body.voterEmail;
 
-      const votersList = await votersCollection.findOne({ _id: new ObjectId(id) })
-      const filteredVoters = votersList.voters.filter(voter => voter.voterEmail !== email)
+      const votersList = await votersCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      const filteredVoters = votersList.voters.filter(
+        (voter) => voter.voterEmail !== email
+      );
       console.log(filteredVoters);
 
-      const result = await votersCollection.updateOne({ _id: new ObjectId(id) }, { $set: { voters: filteredVoters } })
-      res.send(result)
+      const result = await votersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { voters: filteredVoters } }
+      );
+      res.send(result);
     });
 
     // delete voter api
@@ -335,6 +346,19 @@ async function run() {
         // Delete the generated file after download
         // fs.unlinkSync(excelFilePath);
       });
+    });
+
+    // ===============blogs==============
+    app.get("/blogs", async (req, res) => {
+      const result = await blogCollection.find({}).toArray();
+      res.send(result);
+    });
+
+    app.get("/blog/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await blogCollection.find(query).toArray();
+      res.send(result);
     });
 
     // ===============================website data to exelsheet api end===============
