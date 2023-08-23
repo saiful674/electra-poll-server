@@ -433,41 +433,50 @@ setInterval(() => {
   checkStatus();
 }, 20000);
 
+function adjustForTimezone(baseDate, timezoneString) {
+  const offset = parseInt(timezoneString.replace("UTC", ""), 10);
+  baseDate.setHours(baseDate.getHours() + offset);
+  return baseDate;
+}
+
 async function checkStatus() {
-  const currentTime = new Date();
 
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
       status: "published",
-      startDate: { $lte: currentTime },
     })
     .toArray();
 
+
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    await electionCollection.updateOne(
-      { _id: new ObjectId(election._id) },
-      { $set: { status: "ongoing" } }
-    );
+    let currentTime = new Date(Date.now());
+    if (election.startDate <= currentTime) {
+      await electionCollection.updateOne(
+        { _id: new ObjectId(election._id) },
+        { $set: { status: "ongoing" } }
+      );
+    }
   }
 
-  const hasAutoDate = await electionCollection.find();
 
   // Find elections that are 'ongoing' and should now be 'completed'
   const toBeCompleted = await electionCollection
     .find({
-      status: "ongoing",
-      endDate: { $lte: currentTime }, // use $lte, not $gte
+      status: "ongoing", // use $lte, not $gte
     })
     .toArray();
 
   // Update these elections to 'completed'
   for (let election of toBeCompleted) {
-    await electionCollection.updateOne(
-      { _id: new ObjectId(election._id) },
-      { $set: { status: "completed" } }
-    );
+    let currentTime2 = new Date(Date.now());
+    if (new Date(election.endDate).getTime() <= currentTime2.getTime()) {
+      await electionCollection.updateOne(
+        { _id: new ObjectId(election._id) },
+        { $set: { status: "completed" } }
+      );
+    }
   }
 }
 
