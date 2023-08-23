@@ -2,6 +2,7 @@ const express = require("express");
 const schedule = require("node-schedule");
 const cors = require("cors");
 require("dotenv").config();
+const xlsx = require('xlsx');
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
@@ -151,6 +152,14 @@ async function run() {
       res.send(result)
     });
 
+    // delete voter api
+    app.delete("/voters/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await votersCollection.deleteOne(query);
+      res.send(result);
+    });
+
     // =============== add elections ============
     app.post("/add-election", async (req, res) => {
       const election = req.body;
@@ -164,9 +173,11 @@ async function run() {
       const election = req.body;
       delete election._id;
 
-      if (election.status === 'ongoing' && election.autoDate) {
-        election.startDate = new Date()
-        election.endDate = new Date(election.startDate.getTime() + election.autoDate * 60 * 1000);
+      if (election.status === "ongoing" && election.autoDate) {
+        election.startDate = new Date();
+        election.endDate = new Date(
+          election.startDate.getTime() + election.autoDate * 60 * 1000
+        );
       }
 
       if (election.startDate) {
@@ -256,7 +267,7 @@ async function run() {
                   </table>
               </body>
               </html>
-          `
+          `,
             });
 
             console.log("Message sent: %s", mailInfo.messageId);
@@ -277,20 +288,18 @@ async function run() {
     });
 
     // =================get all election per company==============
-    // app.get("/elections/:email", async (req, res) => {
-    //   const { email } = req.params;
-    //   const query = { email: email };
-    //   const result = await electionCollection.find(query).toArray();
-    //   res.send(result);
-    // });
+    app.get("/all-elections/:email", async (req, res) => {
+      const { email } = req.params;
+      const query = { email: email };
+      const result = await electionCollection.find(query).toArray();
+      res.send(result);
+    });
 
-    app.get('/elections', async (req, res) => {
-
+    app.get("/elections", async (req, res) => {
       const { email } = req.query;
       const { status } = req.query;
       console.log(status);
-      console.log(email);;
-
+      console.log(email);
 
       // Query to fetch data for the specified email
       const emailQuery = { email };
@@ -298,13 +307,11 @@ async function run() {
       // Query to filter emailData based on status
       let filteredData = emailData;
       if (status) {
-        filteredData = emailData.filter(item => item.status === status);
+        filteredData = emailData.filter((item) => item.status === status);
       }
 
       res.send(filteredData);
-
     });
-
 
     // ===============delete election==============
     app.patch("/remove-election/:id", async (req, res) => {
@@ -314,6 +321,74 @@ async function run() {
       });
       res.send(result);
     });
+
+    // ===============================website data to exelsheet api start===============
+    // Sample election result data
+    const electionResults = [
+      { candidate: "Candidate A", votes: 150 },
+      { candidate: "Candidate B", votes: 200 },
+      { candidate: "Candidate C", votes: 255 },
+      // ... more data
+    ];
+
+    // const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
+    // const SPREADSHEET_ID = "your_spreadsheet_id";
+    // const API_KEY = "AIzaSyCGoVJW0yCtfgy1VFbihfpPP8hvuFxA_yE";
+
+    // app.get("/dwonload-election-result", async (req, res) => {
+    //   const auth = new google.auth.GoogleAuth({
+    //     keyFile: "/electrapollagent-uxap-dd518e96b30c.json",
+    //     scopes: SCOPES,
+    //   });
+
+    //   const sheets = google.sheets({ version: "v4", auth });
+
+    //   try {
+    //     const values = electionResults.map((result) => [
+    //       result.candidate,
+    //       result.votes,
+    //     ]);
+
+    //     await sheets.spreadsheets.values.append({
+    //       spreadsheetId: SPREADSHEET_ID,
+    //       range: "Sheet1", // Change to your desired sheet and range
+    //       valueInputOption: "USER_ENTERED",
+    //       resource: {
+    //         values,
+    //       },
+    //     });
+
+    //     res.status(200).send("Data exported to Google Sheet.");
+    //   } catch (error) {
+    //     console.error("Error exporting data:", error);
+    //     res.status(500).send("Error exporting data to Google Sheet.");
+    //   }
+    // });
+
+    app.get("/download-election-data", (req, res) => {
+      // Create a new workbook
+      const wb = xlsx.utils.book_new();
+
+      // Add a worksheet with election result data
+      const ws = xlsx.utils.json_to_sheet(electionResults);
+      xlsx.utils.book_append_sheet(wb, ws, "Election Results");
+
+      // Generate Excel file
+      const excelFilePath = "election_results.xls";
+      xlsx.writeFile(wb, excelFilePath);
+
+      // Provide file for download
+      res.download(excelFilePath, "election_results.xls", (err) => {
+        if (err) {
+          console.error(err);
+          res.status(500).send("Error generating file.");
+        }
+        // Delete the generated file after download
+        // fs.unlinkSync(excelFilePath);
+      });
+    });
+
+    // ===============================website data to exelsheet api end===============
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -394,7 +469,7 @@ async function checkStatus() {
     );
   }
 
-  const hasAutoDate = await electionCollection.find()
+  const hasAutoDate = await electionCollection.find();
 
   // Find elections that are 'ongoing' and should now be 'completed'
   const toBeCompleted = await electionCollection
