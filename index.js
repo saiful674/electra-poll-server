@@ -114,23 +114,41 @@ async function run() {
       const email = req.params.email;
 
       const query = { email: email };
-      const result = await votersCollection.find(query).toArray();
-      res.send(result);
-    });
-    
-    // add voter api
-    app.post("/add-voters", async (req, res) => {
-      const voterInfo = req.body;
-      const result = await votersCollection.insertOne(voterInfo);
+      const result = await votersCollection.findOne(query);
       res.send(result);
     });
 
+    // add voter api
+    app.post("/add-voters", async (req, res) => {
+      const voterInfo = req.body;
+
+      const votersList = await votersCollection.findOne({ email: voterInfo.email })
+      const matchingEmail = votersList.voters.find(voter => voter.voterEmail === voterInfo.voter.voterEmail)
+
+      if (matchingEmail) {
+        res.send({ exist: true })
+      }
+      else {
+        const result = await votersCollection.updateOne(
+          { email: voterInfo.email },
+          { $push: { voters: voterInfo.voter } },
+          { upsert: true }
+        );
+        res.send(result);
+      }
+    });
+
     // delete voter api
-    app.delete("/voters/:id", async (req, res) => {
+    app.patch("/voters/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await votersCollection.deleteOne(query);
-      res.send(result);
+      const email = req.body.voterEmail
+
+      const votersList = await votersCollection.findOne({ _id: new ObjectId(id) })
+      const filteredVoters = votersList.voters.filter(voter => voter.voterEmail !== email)
+      console.log(filteredVoters);
+
+      const result = await votersCollection.updateOne({ _id: new ObjectId(id) }, { $set: { voters: filteredVoters } })
+      res.send(result)
     });
 
     // =============== add elections ============
@@ -267,26 +285,26 @@ async function run() {
     // });
 
     app.get('/elections', async (req, res) => {
-    
-        const { email } = req.query;
-        const { status } = req.query;
-        console.log(status);
-        console.log(email);;
 
-    
-        // Query to fetch data for the specified email
-        const emailQuery = { email };
-        const emailData = await electionCollection.find(emailQuery).toArray();
-        // Query to filter emailData based on status
-        let filteredData = emailData;
-        if (status) {
-          filteredData = emailData.filter(item => item.status === status);
-        }
-        
-        res.send(filteredData);
-      
+      const { email } = req.query;
+      const { status } = req.query;
+      console.log(status);
+      console.log(email);;
+
+
+      // Query to fetch data for the specified email
+      const emailQuery = { email };
+      const emailData = await electionCollection.find(emailQuery).toArray();
+      // Query to filter emailData based on status
+      let filteredData = emailData;
+      if (status) {
+        filteredData = emailData.filter(item => item.status === status);
+      }
+
+      res.send(filteredData);
+
     });
-    
+
 
     // ===============delete election==============
     app.patch("/remove-election/:id", async (req, res) => {
