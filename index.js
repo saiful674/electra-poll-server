@@ -173,23 +173,6 @@ async function run() {
       const election = req.body;
       delete election._id;
 
-      if (election.status === "ongoing" && election.autoDate) {
-        election.startDate = new Date();
-        election.endDate = new Date(
-          election.startDate.getTime() + election.autoDate * 60 * 1000
-        );
-      }
-
-      if (election.startDate) {
-        election.startDate = new Date(election.startDate);
-      }
-
-      if (election.endDate) {
-        election.endDate = new Date(election.endDate);
-      }
-
-      console.log(election);
-
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
