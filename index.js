@@ -115,15 +115,41 @@ async function run() {
       const email = req.params.email;
 
       const query = { email: email };
-      const result = await votersCollection.find(query).toArray();
+      const result = await votersCollection.findOne(query);
       res.send(result);
     });
 
     // add voter api
     app.post("/add-voters", async (req, res) => {
       const voterInfo = req.body;
-      const result = await votersCollection.insertOne(voterInfo);
-      res.send(result);
+
+      const votersList = await votersCollection.findOne({ email: voterInfo.email })
+      const matchingEmail = votersList.voters.find(voter => voter.voterEmail === voterInfo.voter.voterEmail)
+
+      if (matchingEmail) {
+        res.send({ exist: true })
+      }
+      else {
+        const result = await votersCollection.updateOne(
+          { email: voterInfo.email },
+          { $push: { voters: voterInfo.voter } },
+          { upsert: true }
+        );
+        res.send(result);
+      }
+    });
+
+    // delete voter api
+    app.patch("/voters/:id", async (req, res) => {
+      const id = req.params.id;
+      const email = req.body.voterEmail
+
+      const votersList = await votersCollection.findOne({ _id: new ObjectId(id) })
+      const filteredVoters = votersList.voters.filter(voter => voter.voterEmail !== email)
+      console.log(filteredVoters);
+
+      const result = await votersCollection.updateOne({ _id: new ObjectId(id) }, { $set: { voters: filteredVoters } })
+      res.send(result)
     });
 
     // delete voter api
