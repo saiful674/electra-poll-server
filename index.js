@@ -442,7 +442,7 @@ async function checkStatus() {
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
     let currentTime = new Date(Date.now());
-    if (election.startDate <= currentTime) {
+    if (new Date(election.startDate).getTime() <= currentTime.getTime()) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "ongoing" } }
