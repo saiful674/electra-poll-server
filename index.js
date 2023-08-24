@@ -1,12 +1,11 @@
 const express = require("express");
-const schedule = require("node-schedule");
 const cors = require("cors");
 require("dotenv").config();
 const xlsx = require("xlsx");
 const bodyParser = require("body-parser");
-const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
 const path = require("path");
+
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -15,6 +14,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
+
+console.log(process.env.DB_USER);
+console.log(process.env.DB_PASS);
+
 
 // =============================Initialize Dialogflow client start======================
 const credentialsPath = path.join(
@@ -28,8 +31,11 @@ const sessionClient = new SessionsClient({
 const sessionID = `${Date.now()}-${Math.random()
   .toString(36)
   .substring(2, 15)}`;
-
+console.log(sessionID);
 // ===========================Initialize Dialogflow client end=======================
+
+
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7p3fj4a.mongodb.net/?retryWrites=true&w=majority`;
@@ -43,8 +49,6 @@ const client = new MongoClient(uri, {
   },
 });
 
-const electionCollection = client.db("electraPollDB").collection("elections");
-
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -55,35 +59,6 @@ async function run() {
     const blogCollection = database.collection("blogs");
 
     // .............Authentication related api
-    app.get("/users/:email", async (req, res) => {
-      const email = req.params.email;
-
-      const query = { email: email };
-      const result = await userCollection.find(query).toArray();
-      res.send(result);
-    });
-
-    // update user>>
-    app.patch("/users/:email", async (req, res) => {
-      try {
-        const email = req.params.email;
-        const updatedData = req.body;
-        const result = await userCollection.updateOne(
-          { email: email },
-          { $set: updatedData }
-        );
-
-        if (result.modifiedCount > 0) {
-          res.status(200).json({ message: "User data updated successfully" });
-        } else {
-          res.status(404).json({ message: "User not found" });
-        }
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Internal server error" });
-      }
-    });
-
     // Users
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -97,24 +72,13 @@ async function run() {
     });
 
     const votersCollection = client.db("electraPollDB").collection("voters");
-
-    // send email related code
-
-    const transporter = nodemailer.createTransport({
-      host: "smtp-relay.brevo.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.email,
-        pass: process.env.email_pass,
-      },
-    });
+    const electionCollection = client.db("electraPollDB").collection("elections");
 
     // ======================voter related apis===========================
     // get all voters by manager's email
     app.get("/voters/:email", async (req, res) => {
       const email = req.params.email;
-
+      console.log(email);
       const query = { email: email };
       const result = await votersCollection.findOne(query);
       res.send(result);
@@ -183,11 +147,16 @@ async function run() {
       const id = req.params.id;
       const election = req.body;
       delete election._id;
+<<<<<<< HEAD
+=======
 
+>>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
       );
+<<<<<<< HEAD
+=======
       if (result && election.status === "published") {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
@@ -270,18 +239,47 @@ async function run() {
           }
         }
       }
+>>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
       res.send(result);
     });
 
-    app.get("/election/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await electionCollection.findOne({
-        _id: new ObjectId(id),
-      });
-      res.send(result);
-    });
+    app.get('/election/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await electionCollection.findOne({ _id: new ObjectId(id) })
+      res.send(result)
+    })
 
     // =================get all election per company==============
+<<<<<<< HEAD
+    // app.get("/elections/:email", async (req, res) => {
+    //   const { email } = req.params;
+    //   const query = { email: email };
+    //   const result = await electionCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+
+        // =================get all election per company and separate by its status==============
+
+    app.get('/elections', async (req, res) => {
+    
+        const { email } = req.query;
+        const { status } = req.query;
+        console.log(status);
+        console.log(email);;
+
+    
+        // Query to fetch data for the specified email
+        const emailQuery = { email };
+        const emailData = await electionCollection.find(emailQuery).toArray();
+        // Query to filter emailData based on status
+        let filteredData = emailData;
+        if (status) {
+          filteredData = emailData.filter(item => item.status === status);
+        }
+        
+        res.send(filteredData);
+      
+=======
     app.get("/all-elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
@@ -305,16 +303,15 @@ async function run() {
       }
 
       res.send(filteredData);
+>>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
     });
 
     // ===============delete election==============
-    app.patch("/remove-election/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await electionCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
-      res.send(result);
-    });
+    app.patch('/remove-election/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await electionCollection.deleteOne({ _id: new ObjectId(id) })
+      res.send(result)
+    })
 
     // ===============================website data to exelsheet api start===============
     // Sample election result data
@@ -375,11 +372,14 @@ async function run() {
 }
 run().catch(console.dir);
 
+
 // =====================================chatbot apis start=======================
 
 // Handle incoming messages
 app.post("/send-message", async (req, res) => {
   const { message } = req.body;
+  console.log(message)
+
 
   const sessionPath = sessionClient.sessionPath(
     "electrapollagent-uxap",
@@ -402,11 +402,12 @@ app.post("/send-message", async (req, res) => {
     const botResponse = result.fulfillmentText;
 
     if (message == "Welcome Message") {
+
       res.json({
         response:
           "Welcome to our website! I am ElectraPoll Agent. How can I assist you?",
       });
-      // console.log({ message });
+      console.log({ message });
     } else {
       res.json({ response: botResponse });
     }
@@ -418,11 +419,14 @@ app.post("/send-message", async (req, res) => {
 
 // ================================chatbot apis end=================================
 
-// =============================handle elelction status based on starttime endtime============================
-setInterval(() => {
-  checkStatus();
-}, 20000);
 
+<<<<<<< HEAD
+
+
+
+
+
+=======
 function adjustForTimezone(baseDate, timezoneString) {
   const offset = parseInt(timezoneString.replace("UTC", ""), 10);
   baseDate.setHours(baseDate.getHours() + offset);
@@ -469,6 +473,7 @@ async function checkStatus() {
     }
   }
 }
+>>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
 
 app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
@@ -477,3 +482,4 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
+
