@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const xlsx = require("xlsx");
 const bodyParser = require("body-parser");
 const { SessionsClient } = require("dialogflow");
 const path = require("path");
@@ -55,6 +56,7 @@ async function run() {
 
     const database = client.db("electraPollDB");
     const userCollection = database.collection("users");
+    const blogCollection = database.collection("blogs");
 
     // .............Authentication related api
     // Users
@@ -78,14 +80,50 @@ async function run() {
       const email = req.params.email;
       console.log(email);
       const query = { email: email };
-      const result = await votersCollection.find(query).toArray();
+      const result = await votersCollection.findOne(query);
       res.send(result);
     });
-    
+
     // add voter api
     app.post("/add-voters", async (req, res) => {
       const voterInfo = req.body;
-      const result = await votersCollection.insertOne(voterInfo);
+
+      const votersList = await votersCollection.findOne({
+        email: voterInfo.email,
+      });
+      const matchingEmail = votersList?.voters.find(
+        (voter) => voter.voterEmail === voterInfo.voter.voterEmail
+      );
+
+      if (matchingEmail) {
+        res.send({ exist: true });
+      } else {
+        const result = await votersCollection.updateOne(
+          { email: voterInfo.email },
+          { $push: { voters: voterInfo.voter } },
+          { upsert: true }
+        );
+        res.send(result);
+      }
+    });
+
+    // delete voter api
+    app.patch("/voters/:id", async (req, res) => {
+      const id = req.params.id;
+      const email = req.body.voterEmail;
+
+      const votersList = await votersCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      const filteredVoters = votersList.voters.filter(
+        (voter) => voter.voterEmail !== email
+      );
+      console.log(filteredVoters);
+
+      const result = await votersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { voters: filteredVoters } }
+      );
       res.send(result);
     });
 
@@ -109,10 +147,99 @@ async function run() {
       const id = req.params.id;
       const election = req.body;
       delete election._id;
+<<<<<<< HEAD
+=======
+
+>>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
       );
+<<<<<<< HEAD
+=======
+      if (result && election.status === "published") {
+        const getElection = await electionCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        const emails = [];
+
+        getElection.voterEmails?.map((e) => emails.push(e.email));
+
+        for (const voter of getElection.voterEmails) {
+          try {
+            const mailInfo = await transporter.sendMail({
+              from: "codecrafters80@gmail.com",
+              to: voter.email,
+              subject: `Vote Now: ${getElection?.title}`,
+              html: `
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Email Template</title>
+                  <style>
+                      body {
+                          font-family: Arial, sans-serif;
+                          margin: 0;
+                          padding: 0;
+                          border-radius: 15px;
+                      }
+          
+                      @media only screen and (max-width: 576px) {
+                          body {
+                              width: 100% !important;
+                          }
+                      }
+          
+                      @media only screen and (max-width: 376px) {
+                          body {
+                              width: 100% !important;
+                          }
+                      }
+                  </style>
+              </head>
+              <body style="margin: 0 auto;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                          <td align="center" style="padding: 20px 0;">
+                              <img src="https://i.ibb.co/J2k86ts/logo.png" alt="Company Logo" width="150">
+                          </td>
+                      </tr>
+                      <tr>
+                          <td bgcolor="#f0fdf4" style="padding: 40px 20px; color: black;line-height:20px">
+                              <h3>You are cordially invited to cast your vote in the upcoming ${getElection?.title} election - ${getElection?.organization}.</h3>
+                              <p>Hello,</p>
+                              <p style="color: black">We are employing a sophisticated online voting system to ensure accuracy and transparency. You have been allocated a unique voting key, granting you one-time access to this process. Please treat this key with confidentiality and avoid sharing or forwarding this communication.</p>
+                              <p>Should you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact ${getElection?.email}</p>
+
+                              <p style="padding-bottom: 10px">you will need to enter the access key and password to vote. Don't share it with anybody</p>
+                              <p>Access Key: ${voter.accessKey}</p>
+                              <p>Password: ${voter.password}</p>
+                              <hr />
+          
+                              <p>Thank you for your participation.</p>
+                          </td>
+                      </tr>
+                      <tr>
+                          <td bgcolor="#f4f4f4" style="text-align: center; padding: 10px 0;">
+                              <p>&copy; 2023 Electro Poll. All rights reserved.</p>
+                          </td>
+                      </tr>
+                  </table>
+              </body>
+              </html>
+          `,
+            });
+
+            console.log("Message sent: %s", mailInfo.messageId);
+          } catch (error) {
+            console.error("Error sending email:", error);
+          }
+        }
+      }
+>>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
       res.send(result);
     });
 
@@ -123,6 +250,7 @@ async function run() {
     })
 
     // =================get all election per company==============
+<<<<<<< HEAD
     // app.get("/elections/:email", async (req, res) => {
     //   const { email } = req.params;
     //   const query = { email: email };
@@ -151,8 +279,32 @@ async function run() {
         
         res.send(filteredData);
       
+=======
+    app.get("/all-elections/:email", async (req, res) => {
+      const { email } = req.params;
+      const query = { email: email };
+      const result = await electionCollection.find(query).toArray();
+      res.send(result);
     });
-    
+
+    app.get("/elections", async (req, res) => {
+      const { email } = req.query;
+      const { status } = req.query;
+      console.log(status);
+      console.log(email);
+
+      // Query to fetch data for the specified email
+      const emailQuery = { email };
+      const emailData = await electionCollection.find(emailQuery).toArray();
+      // Query to filter emailData based on status
+      let filteredData = emailData;
+      if (status) {
+        filteredData = emailData.filter((item) => item.status === status);
+      }
+
+      res.send(filteredData);
+>>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
+    });
 
     // ===============delete election==============
     app.patch('/remove-election/:id', async (req, res) => {
@@ -160,6 +312,53 @@ async function run() {
       const result = await electionCollection.deleteOne({ _id: new ObjectId(id) })
       res.send(result)
     })
+
+    // ===============================website data to exelsheet api start===============
+    // Sample election result data
+    const electionResults = [
+      { candidate: "Candidate A", votes: 150 },
+      { candidate: "Candidate B", votes: 200 },
+      { candidate: "Candidate C", votes: 255 },
+      // ... more data
+    ];
+
+    app.get("/download-election-data", (req, res) => {
+      // Create a new workbook
+      const wb = xlsx.utils.book_new();
+
+      // Add a worksheet with election result data
+      const ws = xlsx.utils.json_to_sheet(electionResults);
+      xlsx.utils.book_append_sheet(wb, ws, "Election Results");
+
+      // Generate Excel file
+      const excelFilePath = "election_results.xls";
+      xlsx.writeFile(wb, excelFilePath);
+
+      // Provide file for download
+      res.download(excelFilePath, "election_results.xls", (err) => {
+        if (err) {
+          console.error(err);
+          res.status(500).send("Error generating file.");
+        }
+        // Delete the generated file after download
+        // fs.unlinkSync(excelFilePath);
+      });
+    });
+
+    // ===============blogs==============
+    app.get("/blogs", async (req, res) => {
+      const result = await blogCollection.find({}).toArray();
+      res.send(result);
+    });
+
+    app.get("/blog/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await blogCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // ===============================website data to exelsheet api end===============
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -221,11 +420,60 @@ app.post("/send-message", async (req, res) => {
 // ================================chatbot apis end=================================
 
 
+<<<<<<< HEAD
 
 
 
 
 
+=======
+function adjustForTimezone(baseDate, timezoneString) {
+  const offset = parseInt(timezoneString.replace("UTC", ""), 10);
+  baseDate.setHours(baseDate.getHours() + offset);
+  return baseDate;
+}
+
+async function checkStatus() {
+
+  // Find elections that are 'published' and should now be 'ongoing'
+  const toBeOngoing = await electionCollection
+    .find({
+      status: "published",
+    })
+    .toArray();
+
+
+  // Update these elections to 'ongoing'
+  for (let election of toBeOngoing) {
+    let currentTime = new Date(Date.now());
+    if (new Date(election.startDate).getTime() <= currentTime.getTime()) {
+      await electionCollection.updateOne(
+        { _id: new ObjectId(election._id) },
+        { $set: { status: "ongoing" } }
+      );
+    }
+  }
+
+
+  // Find elections that are 'ongoing' and should now be 'completed'
+  const toBeCompleted = await electionCollection
+    .find({
+      status: "ongoing", // use $lte, not $gte
+    })
+    .toArray();
+
+  // Update these elections to 'completed'
+  for (let election of toBeCompleted) {
+    let currentTime2 = new Date(Date.now());
+    if (new Date(election.endDate).getTime() <= currentTime2.getTime()) {
+      await electionCollection.updateOne(
+        { _id: new ObjectId(election._id) },
+        { $set: { status: "completed" } }
+      );
+    }
+  }
+}
+>>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
 
 app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
