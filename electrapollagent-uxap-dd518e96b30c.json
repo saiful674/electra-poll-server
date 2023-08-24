@@ -1,13 +1,1 @@
-{
-  "type": "service_account",
-  "project_id": "electrapollagent-uxap",
-  "private_key_id": "dd518e96b30c982af5462a551e34d78e0bb8fa5b",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDBzsUF8/CZCGJw\nI6PhPKwtNuB+Deu6Fuswy+NphXpWqbzlNe6u7JKv0jNv/tgoGuFyQOOWzqS9ZW7z\ngA/Yc7zyifwTb0avbRf5GIr7omlpciiNh2NW6zYSELzHBq4iqyX4z1phZEjz+TVm\nJ9KksicXDw0UdgYjs4ZEfqsujHC6j8G6+s6KHMBxFyXEP0SimP7fXuoDZ8v0fkPF\nozdsgZNv/LGaKtCNUrfWjVRZBXxu29l8imc5W5WAX9rNSdXFl5/B6bCIbmf13HKT\n8e9i4J3grVFVr3/H/tBAXr+yTcuJvLHg09nWe79ppIuy5CPKnSEq/1OfiRinHMfP\nZtwCyyvVAgMBAAECggEAD4AThuXbLMocYV6gWT/Kf3U/oCVJ4KC7n7P21LYtsiey\nKVzWYZwfITu9DGyD6jU4KbSh3ypYx6MIrCXmXofnKTi69ez06MvfWndJilWTe7D7\nKFKXMdjvAqPfDUXuAGzSxSMEVfy4zvZz/F8b/DsZYEE+aRAFbq6Jgwnkc/0cePcp\nuaAurlwchd3rO2ERNuPDNq4HKzI1u5xo0hDNsHZ5g622r+EvhZo0v7PzWdpfolg3\nz60xFwzcE9/Dx2Gqn/rYH70V+OFKR0NgvTviidMAU4TfBIZwXQaCYsbB/0SYn9EC\nhB9jU/IvCnObF5NzOHaAjdSuX34qhsDqxb/VO3gDYwKBgQDp/6HIVGYwTj/sk6Yq\ngLS6MTQhriza/f+ZUMwUUCuW90p3BCq1XNVUOyRC5mjrtqAYRrFAbQKPg9luemnY\nHwgyjkxV2a67crOp+bHOHQEWgTDTD5lyxPMnHiDFp9x1OuBne7sZx84T+amfc59h\nLK3883d8eM3d9zdgfaKmnhFhXwKBgQDUB71UIi/XRifUotjPgWa97k7Vp9OGIckN\n0xjwG5Iij1jnv0C6RlwDd9HtVuIj0WsMswDMIzbBVDoNhCh+tK1DagNlrGp8ysbn\n+jeLimtm6suppk4TrjDIvoz2saUv5h1OXnWAbPcgjS4OpZBgQWTfMDeoc2joJlaX\nXuyHFvV7SwKBgEa9BMdu3EWWIjT+nakTp47x+PSFlwHM70wF5OvvIH5O27AHDnIt\nUkBYcKnYxbccSmGMXWFAkxmXnk+LqhuvpebCpcj+OZhpIG8uENZiZkXLYFstyBGu\nAGO+8+FM0ZSO6+/cs78ja+UWAHU3muLhgueJIoH6cyG67n64/EaqWk65AoGBAIJI\nAyiIHRdMrzqzmT7fhw7bOCuGBK3dYpmRBTi76C4+IGW9mXsbsnwbCq2n/in+CqXx\n82J7nLBsHYOimfNI91F9+Xpm18O4IUH2+FxQgC/rw5qJal4jYSxoEVufyh1Faup1\nlgOEcNDajttHFhBe/ik5immCCIrky74VAIb9L3dDAoGALKInySUcGL9tDKEKlzMC\nbFgQGfzQxZDkH3eN9gd3/9alR7+5u0vlkhpbuaGLxIaHOExeyY/5UFNpK6tjJKsb\nltMaMQC/yrA05BJ1kPbxbwh4pZEUcf++HqgC0hDoWdMQs9dRrLhDaSLDZccXbbvy\nJ7hcdpuGuC6ccYWw9X29tMA=\n-----END PRIVATE KEY-----\n",
-  "client_email": "myservice@electrapollagent-uxap.iam.gserviceaccount.com",
-  "client_id": "106842497331045991543",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/myservice%40electrapollagent-uxap.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}
+
