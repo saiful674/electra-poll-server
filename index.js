@@ -147,16 +147,10 @@ async function run() {
       const id = req.params.id;
       const election = req.body;
       delete election._id;
-<<<<<<< HEAD
-=======
-
->>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
       );
-<<<<<<< HEAD
-=======
       if (result && election.status === "published") {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
@@ -239,7 +233,6 @@ async function run() {
           }
         }
       }
->>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
       res.send(result);
     });
 
@@ -250,36 +243,6 @@ async function run() {
     })
 
     // =================get all election per company==============
-<<<<<<< HEAD
-    // app.get("/elections/:email", async (req, res) => {
-    //   const { email } = req.params;
-    //   const query = { email: email };
-    //   const result = await electionCollection.find(query).toArray();
-    //   res.send(result);
-    // });
-
-        // =================get all election per company and separate by its status==============
-
-    app.get('/elections', async (req, res) => {
-    
-        const { email } = req.query;
-        const { status } = req.query;
-        console.log(status);
-        console.log(email);;
-
-    
-        // Query to fetch data for the specified email
-        const emailQuery = { email };
-        const emailData = await electionCollection.find(emailQuery).toArray();
-        // Query to filter emailData based on status
-        let filteredData = emailData;
-        if (status) {
-          filteredData = emailData.filter(item => item.status === status);
-        }
-        
-        res.send(filteredData);
-      
-=======
     app.get("/all-elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
@@ -290,8 +253,8 @@ async function run() {
     app.get("/elections", async (req, res) => {
       const { email } = req.query;
       const { status } = req.query;
-      console.log(status);
-      console.log(email);
+      // console.log(status);
+      // console.log(email);
 
       // Query to fetch data for the specified email
       const emailQuery = { email };
@@ -303,8 +266,24 @@ async function run() {
       }
 
       res.send(filteredData);
->>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
     });
+
+
+
+    app.put("/election-vote-update/:id", async (req, res) => {
+      const id = req.params.id;
+      const body = req.body;
+      const filter = { _id: new ObjectId(id) };
+      console.log(body.value);
+      const updateDoc = {
+        $set: {
+          questions: body.value,
+        },
+      };
+      const result = await electionCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
 
     // ===============delete election==============
     app.patch('/remove-election/:id', async (req, res) => {
@@ -420,13 +399,6 @@ app.post("/send-message", async (req, res) => {
 // ================================chatbot apis end=================================
 
 
-<<<<<<< HEAD
-
-
-
-
-
-=======
 function adjustForTimezone(baseDate, timezoneString) {
   const offset = parseInt(timezoneString.replace("UTC", ""), 10);
   baseDate.setHours(baseDate.getHours() + offset);
@@ -473,7 +445,6 @@ async function checkStatus() {
     }
   }
 }
->>>>>>> dcd2f344689ba387ecaf030e5536928d99f98844
 
 app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
