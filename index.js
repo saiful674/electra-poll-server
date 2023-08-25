@@ -253,8 +253,8 @@ async function run() {
     app.get("/elections", async (req, res) => {
       const { email } = req.query;
       const { status } = req.query;
-      console.log(status);
-      console.log(email);
+      // console.log(status);
+      // console.log(email);
 
       // Query to fetch data for the specified email
       const emailQuery = { email };
@@ -267,6 +267,23 @@ async function run() {
 
       res.send(filteredData);
     });
+
+
+
+    app.put("/election-vote-update/:id", async (req, res) => {
+      const id = req.params.id;
+      const body = req.body;
+      const filter = { _id: new ObjectId(id) };
+      console.log(body.value);
+      const updateDoc = {
+        $set: {
+          questions: body.value,
+        },
+      };
+      const result = await electionCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
 
     // ===============delete election==============
     app.patch('/remove-election/:id', async (req, res) => {
