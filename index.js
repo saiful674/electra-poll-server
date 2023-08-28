@@ -49,6 +49,8 @@ const client = new MongoClient(uri, {
   },
 });
 
+const electionCollection = client.db("electraPollDB").collection("elections");
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -72,7 +74,6 @@ async function run() {
     });
 
     const votersCollection = client.db("electraPollDB").collection("voters");
-    const electionCollection = client.db("electraPollDB").collection("elections");
 
     // ======================voter related apis===========================
     // get all voters by manager's email
@@ -293,16 +294,16 @@ async function run() {
     })
 
     // ===============================website data to exelsheet api start===============
-   
+
 
     app.get("/download-election-data", (req, res) => {
-       // Sample election result data
-    const electionResults = [
-      { candidate: "Candidate A", votes: 150 },
-      { candidate: "Candidate B", votes: 200 },
-      { candidate: "Candidate C", votes: 255 },
-      // ... more data
-    ];
+      // Sample election result data
+      const electionResults = [
+        { candidate: "Candidate A", votes: 150 },
+        { candidate: "Candidate B", votes: 200 },
+        { candidate: "Candidate C", votes: 255 },
+        // ... more data
+      ];
 
       // Create a new workbook
       const wb = xlsx.utils.book_new();
@@ -401,11 +402,10 @@ app.post("/send-message", async (req, res) => {
 // ================================chatbot apis end=================================
 
 
-function adjustForTimezone(baseDate, timezoneString) {
-  const offset = parseInt(timezoneString.replace("UTC", ""), 10);
-  baseDate.setHours(baseDate.getHours() + offset);
-  return baseDate;
-}
+// =============================handle elelction status based on starttime endtime============================
+setInterval(() => {
+  checkStatus();
+}, 20000);
 
 async function checkStatus() {
 
@@ -415,8 +415,6 @@ async function checkStatus() {
       status: "published",
     })
     .toArray();
-
-
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
     let currentTime = new Date(Date.now());
@@ -427,15 +425,12 @@ async function checkStatus() {
       );
     }
   }
-
-
   // Find elections that are 'ongoing' and should now be 'completed'
   const toBeCompleted = await electionCollection
     .find({
-      status: "ongoing", // use $lte, not $gte
+      status: "ongoing",
     })
     .toArray();
-
   // Update these elections to 'completed'
   for (let election of toBeCompleted) {
     let currentTime2 = new Date(Date.now());
