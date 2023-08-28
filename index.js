@@ -48,7 +48,7 @@ const electionCollection = client.db("electraPollDB").collection("elections");
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const database = client.db("electraPollDB");
     const userCollection = database.collection("users");
@@ -307,6 +307,23 @@ async function run() {
       res.send(filteredData);
     });
 
+
+
+    app.put("/election-vote-update/:id", async (req, res) => {
+      const id = req.params.id;
+      const body = req.body;
+      const filter = { _id: new ObjectId(id) };
+      console.log(body.value);
+      const updateDoc = {
+        $set: {
+          questions: body.value,
+        },
+      };
+      const result = await electionCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+
     // ===============delete election==============
     app.patch("/remove-election/:id", async (req, res) => {
       const id = req.params.id;
@@ -317,7 +334,10 @@ async function run() {
     });
 
     // ===============================website data to exelsheet api start===============
-    // Sample election result data
+   
+
+    app.get("/download-election-data", (req, res) => {
+       // Sample election result data
     const electionResults = [
       { candidate: "Candidate A", votes: 150 },
       { candidate: "Candidate B", votes: 200 },
@@ -325,7 +345,6 @@ async function run() {
       // ... more data
     ];
 
-    app.get("/download-election-data", (req, res) => {
       // Create a new workbook
       const wb = xlsx.utils.book_new();
 
