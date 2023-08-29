@@ -54,6 +54,7 @@ async function run() {
     const userCollection = database.collection("users");
     const blogCollection = database.collection("blogs");
 
+
     // .............Authentication related api
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
@@ -84,6 +85,7 @@ async function run() {
       }
     });
 
+
     // Users
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -95,6 +97,53 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+
+    // Get single user by email
+app.get("/users/:email", async (req, res) => {
+  const email = req.params.email;
+  const query = { email: email };
+  const user = await userCollection.findOne(query);
+
+  if (user) {
+    res.send(user);
+  } else {
+    res.status(404).send({ message: "User not found" });
+  }
+});
+
+    // get all users 
+    app.get("/all-users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+    // delete user api
+    app.delete("/all-users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+  //  update user role admin
+    app.patch('/users/admin/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: { role: 'admin' },
+      }
+      const result = await userCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+    })
+    // update user role user 
+    app.patch('/users/user/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: { role: 'user' },
+      }
+      const result = await userCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+    })
+ 
 
     const votersCollection = client.db("electraPollDB").collection("voters");
 
