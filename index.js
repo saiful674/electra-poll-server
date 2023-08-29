@@ -456,7 +456,6 @@ async function checkStatus() {
       startDate: { $lte: currentTime },
     })
     .toArray();
-
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
     await electionCollection.updateOne(
@@ -464,17 +463,12 @@ async function checkStatus() {
       { $set: { status: "ongoing" } }
     );
   }
-
-  const hasAutoDate = await electionCollection.find();
-
   // Find elections that are 'ongoing' and should now be 'completed'
   const toBeCompleted = await electionCollection
     .find({
       status: "ongoing",
-      endDate: { $lte: currentTime }, // use $lte, not $gte
     })
     .toArray();
-
   // Update these elections to 'completed'
   for (let election of toBeCompleted) {
     await electionCollection.updateOne(
