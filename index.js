@@ -188,7 +188,7 @@ async function run() {
         { _id: new ObjectId(id) },
         { $set: election }
       );
-      if (result && election.status === "published") {
+      if ((result && election.status === "published") || "ongoing") {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
         });
@@ -246,8 +246,10 @@ async function run() {
                               <p>Should you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact ${getElection?.email}</p>
 
                               <p style="padding-bottom: 10px">you will need to enter the access key and password to vote. Don't share it with anybody</p>
-                              <p>Access Key: ${voter.accessKey}</p>
-                              <p>Password: ${voter.password}</p>
+                              <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
+                              <p style="font-weight:700">Password: ${voter.password}</p>
+							  
+							  <p style="font-weight:700">Your voting link is:  http://localhost:5000/vote?email=${voter.email}&&id=${getElection._id} </p>
                               <hr />
           
                               <p>Thank you for your participation.</p>
@@ -307,13 +309,11 @@ async function run() {
       res.send(filteredData);
     });
 
-
-
     app.put("/election-vote-update/:id", async (req, res) => {
       const id = req.params.id;
       const body = req.body;
       const filter = { _id: new ObjectId(id) };
-      console.log(body.value);
+      // console.log(body.value);
       const updateDoc = {
         $set: {
           questions: body.value,
@@ -322,7 +322,6 @@ async function run() {
       const result = await electionCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
-
 
     // ===============delete election==============
     app.patch("/remove-election/:id", async (req, res) => {
@@ -334,16 +333,15 @@ async function run() {
     });
 
     // ===============================website data to exelsheet api start===============
-   
 
     app.get("/download-election-data", (req, res) => {
-       // Sample election result data
-    const electionResults = [
-      { candidate: "Candidate A", votes: 150 },
-      { candidate: "Candidate B", votes: 200 },
-      { candidate: "Candidate C", votes: 255 },
-      // ... more data
-    ];
+      // Sample election result data
+      const electionResults = [
+        { candidate: "Candidate A", votes: 150 },
+        { candidate: "Candidate B", votes: 200 },
+        { candidate: "Candidate C", votes: 255 },
+        // ... more data
+      ];
 
       // Create a new workbook
       const wb = xlsx.utils.book_new();
@@ -377,6 +375,12 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await blogCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.post("/blog", async (req, res) => {
+      const blog = req.body;
+      const result = await blogCollection.insertOne(blog);
       res.send(result);
     });
 
