@@ -152,7 +152,7 @@ async function run() {
         { _id: new ObjectId(id) },
         { $set: election }
       );
-      if (result && election.status === "published") {
+      if (result && election.status === "published" || 'ongoing') {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
         });
