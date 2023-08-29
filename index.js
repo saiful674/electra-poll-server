@@ -55,15 +55,18 @@ async function run() {
     const blogCollection = database.collection("blogs");
 
 
-    // .............Authentication related api
+    // Get single user by email
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
-
       const query = { email: email };
-      const result = await userCollection.find(query).toArray();
-      res.send(result);
+      const user = await userCollection.findOne(query);
+    
+      if (user) {
+        res.send(user);
+      } else {
+        res.status(404).send({ message: "User not found" });
+      }
     });
-
     // update user>>
     app.patch("/users/:email", async (req, res) => {
       try {
@@ -98,18 +101,7 @@ async function run() {
       res.send(result);
     });
 
-    // Get single user by email
-app.get("/users/:email", async (req, res) => {
-  const email = req.params.email;
-  const query = { email: email };
-  const user = await userCollection.findOne(query);
 
-  if (user) {
-    res.send(user);
-  } else {
-    res.status(404).send({ message: "User not found" });
-  }
-});
 
     // get all users 
     app.get("/all-users", async (req, res) => {
