@@ -54,7 +54,6 @@ async function run() {
     const userCollection = database.collection("users");
     const blogCollection = database.collection("blogs");
 
-
     // // .............Authentication related api
     // app.get("/users/:email", async (req, res) => {
     //   const email = req.params.email;
@@ -63,14 +62,13 @@ async function run() {
     //   const result = await userCollection.find(query).toArray();
     //   res.send(result);
     // });
-        // Get single user by email
-app.get("/users/:email", async (req, res) => {
-  const email = req.params.email;
-  const query = { email: email };
-  const user = await userCollection.findOne(query);
-    res.send(user);
-});
-
+    // Get single user by email
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      res.send(user);
+    });
 
     // update user>>
     app.patch("/users/:email", async (req, res) => {
@@ -93,7 +91,6 @@ app.get("/users/:email", async (req, res) => {
       }
     });
 
-
     // Users
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -106,8 +103,7 @@ app.get("/users/:email", async (req, res) => {
       res.send(result);
     });
 
-
-    // get all users 
+    // get all users
     app.get("/all-users", async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -119,27 +115,26 @@ app.get("/users/:email", async (req, res) => {
       const result = await userCollection.deleteOne(query);
       res.send(result);
     });
-  //  update user role admin
-    app.patch('/users/admin/:id', async (req, res) => {
+    //  update user role admin
+    app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = { _id: new ObjectId(id) }
+      const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
-        $set: { role: 'admin' },
-      }
-      const result = await userCollection.updateOne(filter, updatedDoc)
-      res.send(result)
-    })
-    // update user role user 
-    app.patch('/users/user/:id', async (req, res) => {
+        $set: { role: "admin" },
+      };
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    // update user role user
+    app.patch("/users/user/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = { _id: new ObjectId(id) }
+      const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
-        $set: { role: 'user' },
-      }
-      const result = await userCollection.updateOne(filter, updatedDoc)
-      res.send(result)
-    })
- 
+        $set: { role: "user" },
+      };
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
     const votersCollection = client.db("electraPollDB").collection("voters");
 
@@ -426,6 +421,24 @@ app.get("/users/:email", async (req, res) => {
     app.post("/blog", async (req, res) => {
       const blog = req.body;
       const result = await blogCollection.insertOne(blog);
+      res.send(result);
+    });
+    app.get("/recentBlog", async (req, res) => {
+      const query = { status: "recent" };
+      const result = await blogCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/comment/:id", async (req, res) => {
+      const id = req.params.id;
+      const comment = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateComment = {
+        $push: {
+          comments: comment,
+        },
+      };
+      const result = await blogCollection.updateOne(filter, updateComment);
       res.send(result);
     });
 
