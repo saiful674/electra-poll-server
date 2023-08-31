@@ -54,14 +54,7 @@ async function run() {
     const userCollection = database.collection("users");
     const blogCollection = database.collection("blogs");
 
-    // // .............Authentication related api
-    // app.get("/users/:email", async (req, res) => {
-    //   const email = req.params.email;
-
-    //   const query = { email: email };
-    //   const result = await userCollection.find(query).toArray();
-    //   res.send(result);
-    // });
+ 
     // Get single user by email
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
@@ -324,6 +317,11 @@ async function run() {
     });
 
     // =================get all election per company==============
+    app.get("/all-elections", async (req, res) => {
+      const result = await electionCollection.find().toArray();
+      res.send(result);
+    });
+
     app.get("/all-elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
