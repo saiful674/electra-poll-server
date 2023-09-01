@@ -1,11 +1,13 @@
 const express = require("express");
+const schedule = require("node-schedule");
 const cors = require("cors");
 require("dotenv").config();
 const xlsx = require("xlsx");
+const fs = require("fs");
 const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
 const path = require("path");
-
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -14,10 +16,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
-
-console.log(process.env.DB_USER);
-console.log(process.env.DB_PASS);
-
 
 // =============================Initialize Dialogflow client start======================
 const credentialsPath = path.join(
@@ -31,11 +29,8 @@ const sessionClient = new SessionsClient({
 const sessionID = `${Date.now()}-${Math.random()
   .toString(36)
   .substring(2, 15)}`;
-console.log(sessionID);
+
 // ===========================Initialize Dialogflow client end=======================
-
-
-
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7p3fj4a.mongodb.net/?retryWrites=true&w=majority`;
@@ -49,6 +44,8 @@ const client = new MongoClient(uri, {
   },
 });
 
+const electionCollection = client.db("electraPollDB").collection("elections");
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -58,7 +55,43 @@ async function run() {
     const userCollection = database.collection("users");
     const blogCollection = database.collection("blogs");
 
-    // .............Authentication related api
+    // // .............Authentication related api
+    // app.get("/users/:email", async (req, res) => {
+    //   const email = req.params.email;
+
+    //   const query = { email: email };
+    //   const result = await userCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+    // Get single user by email
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      res.send(user);
+    });
+
+    // update user>>
+    app.patch("/users/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const updatedData = req.body;
+        const result = await userCollection.updateOne(
+          { email: email },
+          { $set: updatedData }
+        );
+
+        if (result.modifiedCount > 0) {
+          res.status(200).json({ message: "User data updated successfully" });
+        } else {
+          res.status(404).json({ message: "User not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
     // Users
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -71,14 +104,58 @@ async function run() {
       res.send(result);
     });
 
+    // get all users
+    app.get("/all-users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+    // delete user api
+    app.delete("/all-users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+    //  update user role admin
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: { role: "admin" },
+      };
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    // update user role user
+    app.patch("/users/user/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: { role: "user" },
+      };
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+
     const votersCollection = client.db("electraPollDB").collection("voters");
-    const electionCollection = client.db("electraPollDB").collection("elections");
+
+    // send email related code
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp-relay.brevo.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.email,
+        pass: process.env.email_pass,
+      },
+    });
 
     // ======================voter related apis===========================
     // get all voters by manager's email
     app.get("/voters/:email", async (req, res) => {
       const email = req.params.email;
-      console.log(email);
+
       const query = { email: email };
       const result = await votersCollection.findOne(query);
       res.send(result);
@@ -118,7 +195,7 @@ async function run() {
       const filteredVoters = votersList.voters.filter(
         (voter) => voter.voterEmail !== email
       );
-      console.log(filteredVoters);
+      // console.log(filteredVoters);
 
       const result = await votersCollection.updateOne(
         { _id: new ObjectId(id) },
@@ -147,11 +224,12 @@ async function run() {
       const id = req.params.id;
       const election = req.body;
       delete election._id;
+
       const result = await electionCollection.updateOne(
         { _id: new ObjectId(id) },
         { $set: election }
       );
-      if (result && election.status === "published") {
+      if ((result && election.status === "published") || "ongoing") {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
         });
@@ -209,8 +287,10 @@ async function run() {
                               <p>Should you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact ${getElection?.email}</p>
 
                               <p style="padding-bottom: 10px">you will need to enter the access key and password to vote. Don't share it with anybody</p>
-                              <p>Access Key: ${voter.accessKey}</p>
-                              <p>Password: ${voter.password}</p>
+                              <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
+                              <p style="font-weight:700">Password: ${voter.password}</p>
+							  
+							  <p style="font-weight:700">Your voting link is:  http://localhost:5000/vote?email=${voter.email}&&id=${getElection._id} </p>
                               <hr />
           
                               <p>Thank you for your participation.</p>
@@ -236,11 +316,13 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/election/:id', async (req, res) => {
-      const id = req.params.id
-      const result = await electionCollection.findOne({ _id: new ObjectId(id) })
-      res.send(result)
-    })
+    app.get("/election/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await electionCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
 
     // =================get all election per company==============
     app.get("/all-elections/:email", async (req, res) => {
@@ -268,13 +350,11 @@ async function run() {
       res.send(filteredData);
     });
 
-
-
     app.put("/election-vote-update/:id", async (req, res) => {
       const id = req.params.id;
       const body = req.body;
       const filter = { _id: new ObjectId(id) };
-      console.log(body.value);
+      // console.log(body.value);
       const updateDoc = {
         $set: {
           questions: body.value,
@@ -284,48 +364,63 @@ async function run() {
       res.send(result);
     });
 
-
     // ===============delete election==============
-    app.patch('/remove-election/:id', async (req, res) => {
-      const id = req.params.id
-      const result = await electionCollection.deleteOne({ _id: new ObjectId(id) })
-      res.send(result)
-    })
+    app.patch("/remove-election/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await electionCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
 
     // ===============================website data to exelsheet api start===============
-   
 
-    app.get("/download-election-data", (req, res) => {
-       // Sample election result data
-    const electionResults = [
-      { candidate: "Candidate A", votes: 150 },
-      { candidate: "Candidate B", votes: 200 },
-      { candidate: "Candidate C", votes: 255 },
-      // ... more data
-    ];
+    app.get("/download-election-data/:id", async (req, res) => {
+      const id = req.params.id;
+      // find election result first
+      const query = { _id: new ObjectId(id) };
+      const electionResult = await electionCollection.findOne(query);
+      console.log(electionResult);
 
-      // Create a new workbook
-      const wb = xlsx.utils.book_new();
+      if (electionResult) {
+        const questionsData = electionResult.questions;
 
-      // Add a worksheet with election result data
-      const ws = xlsx.utils.json_to_sheet(electionResults);
-      xlsx.utils.book_append_sheet(wb, ws, "Election Results");
+        const wb = xlsx.utils.book_new();
 
-      // Generate Excel file
-      const excelFilePath = "election_results.xls";
-      xlsx.writeFile(wb, excelFilePath);
+        const rows = [];
+        questionsData.forEach((question, qIndex) => {
+          question.options.forEach((option, index) => {
+            rows.push({
+              "Question Title": index > 0 ? '"' :  question.questionTitle,
+              Option: option.option,
+              Votes: option.votes,
+            });
+          });
+        });
 
-      // Provide file for download
-      res.download(excelFilePath, "election_results.xls", (err) => {
-        if (err) {
-          console.error(err);
-          res.status(500).send("Error generating file.");
-        }
-        // Delete the generated file after download
-        // fs.unlinkSync(excelFilePath);
-      });
+        const ws = xlsx.utils.json_to_sheet(rows);
+        xlsx.utils.book_append_sheet(wb, ws, "QuestionOptions");
+
+        const excelBuffer = xlsx.write(wb, {
+          bookType: "xlsx",
+          type: "buffer",
+        });
+
+        res.setHeader(
+          "Content-Disposition",
+          "attachment; filename=question_options_output.xlsx"
+        );
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+        res.send(excelBuffer);
+
+      }
     });
- // ===============================website data to exelsheet api end===============
+
+    
+    // ===============================website data to exelsheet api end===============
 
     // ===============blogs==============
     app.get("/blogs", async (req, res) => {
@@ -340,7 +435,29 @@ async function run() {
       res.send(result);
     });
 
-   
+    app.post("/blog", async (req, res) => {
+      const blog = req.body;
+      const result = await blogCollection.insertOne(blog);
+      res.send(result);
+    });
+    app.get("/recentBlog", async (req, res) => {
+      const query = { status: "recent" };
+      const result = await blogCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/comment/:id", async (req, res) => {
+      const id = req.params.id;
+      const comment = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateComment = {
+        $push: {
+          comments: comment,
+        },
+      };
+      const result = await blogCollection.updateOne(filter, updateComment);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -354,14 +471,11 @@ async function run() {
 }
 run().catch(console.dir);
 
-
 // =====================================chatbot apis start=======================
 
 // Handle incoming messages
 app.post("/send-message", async (req, res) => {
   const { message } = req.body;
-  console.log(message)
-
 
   const sessionPath = sessionClient.sessionPath(
     "electrapollagent-uxap",
@@ -384,12 +498,11 @@ app.post("/send-message", async (req, res) => {
     const botResponse = result.fulfillmentText;
 
     if (message == "Welcome Message") {
-
       res.json({
         response:
           "Welcome to our website! I am ElectraPoll Agent. How can I assist you?",
       });
-      console.log({ message });
+      // console.log({ message });
     } else {
       res.json({ response: botResponse });
     }
@@ -401,51 +514,40 @@ app.post("/send-message", async (req, res) => {
 
 // ================================chatbot apis end=================================
 
-
-function adjustForTimezone(baseDate, timezoneString) {
-  const offset = parseInt(timezoneString.replace("UTC", ""), 10);
-  baseDate.setHours(baseDate.getHours() + offset);
-  return baseDate;
-}
+// =============================handle elelction status based on starttime endtime============================
+setInterval(() => {
+  checkStatus();
+}, 20000);
 
 async function checkStatus() {
+  const currentTime = new Date();
 
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
       status: "published",
+      startDate: { $lte: currentTime },
     })
     .toArray();
-
-
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    let currentTime = new Date(Date.now());
-    if (new Date(election.startDate).getTime() <= currentTime.getTime()) {
-      await electionCollection.updateOne(
-        { _id: new ObjectId(election._id) },
-        { $set: { status: "ongoing" } }
-      );
-    }
+    await electionCollection.updateOne(
+      { _id: new ObjectId(election._id) },
+      { $set: { status: "ongoing" } }
+    );
   }
-
-
   // Find elections that are 'ongoing' and should now be 'completed'
   const toBeCompleted = await electionCollection
     .find({
-      status: "ongoing", // use $lte, not $gte
+      status: "ongoing",
     })
     .toArray();
-
   // Update these elections to 'completed'
   for (let election of toBeCompleted) {
-    let currentTime2 = new Date(Date.now());
-    if (new Date(election.endDate).getTime() <= currentTime2.getTime()) {
-      await electionCollection.updateOne(
-        { _id: new ObjectId(election._id) },
-        { $set: { status: "completed" } }
-      );
-    }
+    await electionCollection.updateOne(
+      { _id: new ObjectId(election._id) },
+      { $set: { status: "completed" } }
+    );
   }
 }
 
@@ -456,4 +558,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
-
