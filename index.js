@@ -506,22 +506,25 @@ setInterval(() => {
 }, 20000);
 
 async function checkStatus() {
-  const currentTime = new Date();
 
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
-      status: "published",
-      startDate: { $lte: currentTime },
+      status: "published"
     })
     .toArray();
+
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    await electionCollection.updateOne(
-      { _id: new ObjectId(election._id) },
-      { $set: { status: "ongoing" } }
-    );
+    let currentTime = new Date(Date.now());
+    if (new Date(election.startDate).getTime() <= currentTime.getTime()) {
+      await electionCollection.updateOne(
+        { _id: new ObjectId(election._id) },
+        { $set: { status: "ongoing" } }
+      );
+    }
   }
+
   // Find elections that are 'ongoing' and should now be 'completed'
   const toBeCompleted = await electionCollection
     .find({
@@ -531,8 +534,8 @@ async function checkStatus() {
 
   // Update these elections to 'completed' if endDate is in the past
   for (let election of toBeCompleted) {
-    let endDate = new Date(election.endDate);
-    if (endDate < currentTime) {
+    let currentTime2 = new Date(Date.now());
+    if (new Date(election.endDate).getTime() <= currentTime2.getTime()) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "completed" } }
