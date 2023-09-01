@@ -505,22 +505,31 @@ setInterval(() => {
   checkStatus();
 }, 20000);
 
+function getOffset(timeZone) {
+  return parseInt(timeZone.replace('UTC', ''), 10);
+}
+
 async function checkStatus() {
-  const currentTime = new Date();
+  const currentTimeUTC = Date.now();
 
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
-      status: "published",
-      startDate: { $lte: currentTime },
+      status: "published"
     })
     .toArray();
+
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    await electionCollection.updateOne(
-      { _id: new ObjectId(election._id) },
-      { $set: { status: "ongoing" } }
-    );
+    console.log(election);
+    const utcAdjustedCurrentTime = currentTimeUTC + (getOffset(election.timeZone) * 60 * 60 * 1000);
+
+    if (new Date(election.startDate).getTime() <= utcAdjustedCurrentTime) {
+      await electionCollection.updateOne(
+        { _id: new ObjectId(election._id) },
+        { $set: { status: "ongoing" } }
+      );
+    }
   }
   // Find elections that are 'ongoing' and should now be 'completed'
   const toBeCompleted = await electionCollection
@@ -528,12 +537,18 @@ async function checkStatus() {
       status: "ongoing",
     })
     .toArray();
-  // Update these elections to 'completed'
+
   for (let election of toBeCompleted) {
-    await electionCollection.updateOne(
-      { _id: new ObjectId(election._id) },
-      { $set: { status: "completed" } }
-    );
+    // Adjust current UTC timestamp based on election's timezone offset
+    console.log(election.timeZone);
+    const adjustedCurrentTimestamp = currentTimeUTC + (getOffset(election.timeZone) * 60 * 60 * 1000);
+
+    if (new Date(election.endDate).getTime() <= adjustedCurrentTimestamp) {
+      await electionCollection.updateOne(
+        { _id: new ObjectId(election._id) },
+        { $set: { status: "completed" } }
+      );
+    }
   }
 }
 
@@ -544,3 +559,4 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
+
