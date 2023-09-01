@@ -3,6 +3,7 @@ const schedule = require("node-schedule");
 const cors = require("cors");
 require("dotenv").config();
 const xlsx = require("xlsx");
+const fs = require("fs");
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
@@ -54,14 +55,7 @@ async function run() {
     const userCollection = database.collection("users");
     const blogCollection = database.collection("blogs");
 
-    // // .............Authentication related api
-    // app.get("/users/:email", async (req, res) => {
-    //   const email = req.params.email;
-
-    //   const query = { email: email };
-    //   const result = await userCollection.find(query).toArray();
-    //   res.send(result);
-    // });
+ 
     // Get single user by email
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
@@ -325,6 +319,11 @@ async function run() {
     });
 
     // =================get all election per company==============
+    app.get("/all-elections", async (req, res) => {
+      const result = await electionCollection.find().toArray();
+      res.send(result);
+    });
+
     app.get("/all-elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
@@ -375,36 +374,52 @@ async function run() {
 
     // ===============================website data to exelsheet api start===============
 
-    app.get("/download-election-data", (req, res) => {
-      // Sample election result data
-      const electionResults = [
-        { candidate: "Candidate A", votes: 150 },
-        { candidate: "Candidate B", votes: 200 },
-        { candidate: "Candidate C", votes: 255 },
-        // ... more data
-      ];
+    app.get("/download-election-data/:id", async (req, res) => {
+      const id = req.params.id;
+      // find election result first
+      const query = { _id: new ObjectId(id) };
+      const electionResult = await electionCollection.findOne(query);
+      console.log(electionResult);
 
-      // Create a new workbook
-      const wb = xlsx.utils.book_new();
+      if (electionResult) {
+        const questionsData = electionResult.questions;
 
-      // Add a worksheet with election result data
-      const ws = xlsx.utils.json_to_sheet(electionResults);
-      xlsx.utils.book_append_sheet(wb, ws, "Election Results");
+        const wb = xlsx.utils.book_new();
 
-      // Generate Excel file
-      const excelFilePath = "election_results.xls";
-      xlsx.writeFile(wb, excelFilePath);
+        const rows = [];
+        questionsData.forEach((question, qIndex) => {
+          question.options.forEach((option, index) => {
+            rows.push({
+              "Question Title": index > 0 ? '"' :  question.questionTitle,
+              Option: option.option,
+              Votes: option.votes,
+            });
+          });
+        });
 
-      // Provide file for download
-      res.download(excelFilePath, "election_results.xls", (err) => {
-        if (err) {
-          console.error(err);
-          res.status(500).send("Error generating file.");
-        }
-        // Delete the generated file after download
-        // fs.unlinkSync(excelFilePath);
-      });
+        const ws = xlsx.utils.json_to_sheet(rows);
+        xlsx.utils.book_append_sheet(wb, ws, "QuestionOptions");
+
+        const excelBuffer = xlsx.write(wb, {
+          bookType: "xlsx",
+          type: "buffer",
+        });
+
+        res.setHeader(
+          "Content-Disposition",
+          "attachment; filename=question_options_output.xlsx"
+        );
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+        res.send(excelBuffer);
+
+      }
     });
+
+    
+    // ===============================website data to exelsheet api end===============
 
     // ===============blogs==============
     app.get("/blogs", async (req, res) => {
@@ -442,8 +457,6 @@ async function run() {
       const result = await blogCollection.updateOne(filter, updateComment);
       res.send(result);
     });
-
-    // ===============================website data to exelsheet api end===============
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
