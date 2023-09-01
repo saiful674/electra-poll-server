@@ -7,6 +7,7 @@ const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
 const path = require("path");
+const moment = require("moment");
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -406,6 +407,9 @@ async function run() {
       });
     });
 
+
+    // ===============================website data to exelsheet api end===============
+
     // ===============blogs==============
     app.get("/blogs", async (req, res) => {
       const result = await blogCollection.find({}).toArray();
@@ -507,17 +511,20 @@ setInterval(() => {
 
 async function checkStatus() {
 
+  function getOffset(timeZone) {
+    return parseInt(timeZone.replace('UTC', ''), 10);
+  }
+
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
-      status: "published"
+      status: "published",
     })
     .toArray();
-
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    let currentTime = new Date(Date.now());
-    if (new Date(election.startDate).getTime() <= currentTime.getTime()) {
+    const currentTimeAdjusted = moment.utc().add(getOffset(election.timeZone), 'hours');
+    if (moment(election.startDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "ongoing" } }
@@ -531,11 +538,10 @@ async function checkStatus() {
       status: "ongoing",
     })
     .toArray();
-
-  // Update these elections to 'completed' if endDate is in the past
+  // Update these elections to 'completed'
   for (let election of toBeCompleted) {
-    let currentTime2 = new Date(Date.now());
-    if (new Date(election.endDate).getTime() <= currentTime2.getTime()) {
+    const currentTimeAdjusted = moment.utc().add(getOffset(election.timeZone), 'hours');
+    if (moment(election.endDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "completed" } }
