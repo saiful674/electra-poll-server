@@ -12,9 +12,6 @@ const moment = require("moment");
 const port = process.env.PORT || 5000;
 const app = express();
 
-// Add Socket.io
-const httpServer = require("http").createServer(app);
-const io = require("socket.io")(httpServer);
 
 // midlewire
 app.use(cors());
@@ -648,7 +645,3 @@ app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
 
-// // Start the server
-// httpServer.listen(port, () => {
-//   console.log(`Server is running on port ${port}`);
-// });
