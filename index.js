@@ -12,6 +12,10 @@ const moment = require("moment");
 const port = process.env.PORT || 5000;
 const app = express();
 
+// Add Socket.io
+const httpServer = require("http").createServer(app);
+const io = require("socket.io")(httpServer);
+
 // midlewire
 app.use(cors());
 app.use(express.json());
@@ -45,7 +49,10 @@ const client = new MongoClient(uri, {
 });
 
 const electionCollection = client.db("electraPollDB").collection("elections");
-
+const votersCollection = client.db("electraPollDB").collection("voters");
+const notificationCollection = client
+  .db("electraPollDB")
+  .collection("notifications");
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -136,8 +143,6 @@ async function run() {
       const result = await userCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
-
-    const votersCollection = client.db("electraPollDB").collection("voters");
 
     // send email related code
 
@@ -230,7 +235,7 @@ async function run() {
         { $set: election }
       );
 
-      if (result && election.status === "published" || "ongoing") {
+      if ((result && election.status === "published") || "ongoing") {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
         });
@@ -458,7 +463,6 @@ async function run() {
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         );
         res.send(excelBuffer);
-
       }
     });
     // ===============================website data to exelsheet api end===============
@@ -480,6 +484,27 @@ async function run() {
     app.post("/blog", async (req, res) => {
       const blog = req.body;
       const result = await blogCollection.insertOne(blog);
+
+      // notifications function
+      if (result) {
+        const objectID =result.insertedId
+        const _id = objectID.toHexString()
+        console.log(_id)
+        // Fetch all user IDs (you should have a 'users' collection in your database)
+        const users = await userCollection.find().toArray();
+        // Create a notification for each user
+        const notifications = users.map((user) => ({
+          userId: user._id,
+          userEmail: user.email,
+          message: `New blog post '${blog.title}' by ElectraPoll is published!`,
+          timestamp: new Date(),
+          contentURL: `/singleBlog/${_id}`,
+          isRead: false,
+        }));
+        // Insert notifications for all users
+        await notificationCollection.insertMany(notifications);
+      }
+
       res.send(result);
     });
     app.get("/recentBlog", async (req, res) => {
@@ -501,7 +526,19 @@ async function run() {
       res.send(result);
     });
 
+    // ======================notification related apis start==========================
 
+
+    // get all notification by user email
+    app.get("/notifications/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      const result = await notificationCollection.find(query).toArray();
+
+      res.send(result);
+    });
+
+    // ======================notification related apis end============================
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -568,7 +605,6 @@ async function checkStatus() {
   function getOffset(timeZone) {
     return parseInt(timeZone.replace('UTC', ''), 10);
   }
-
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
@@ -612,3 +648,7 @@ app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
 
+// // Start the server
+// httpServer.listen(port, () => {
+//   console.log(`Server is running on port ${port}`);
+// });
