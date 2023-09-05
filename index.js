@@ -7,6 +7,7 @@ const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
 const path = require("path");
+const moment = require("moment");
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -290,7 +291,7 @@ async function run() {
                               <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
                               <p style="font-weight:700">Password: ${voter.password}</p>
 							  
-							  <p style="font-weight:700">Your voting link is:  http://localhost:5000/vote?email=${voter.email}&&id=${getElection._id} </p>
+							  <p style="font-weight:700">Your voting link is:  http://localhost:5173/vote?email=${voter.email}&&id=${getElection._id} </p>
                               <hr />
           
                               <p>Thank you for your participation.</p>
@@ -316,13 +317,55 @@ async function run() {
       res.send(result);
     });
 
+    // single election get
     app.get("/election/:id", async (req, res) => {
       const id = req.params.id;
-      const result = await electionCollection.findOne({
+      if (id) {
+        const result = await electionCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      }
+    });
+
+    // ==========single election for voting page query checked by voter email======
+    app.get('/election-voterCheck', async (req, res) => {
+      const id = req.query.id;
+      const email = req.query.email;
+      const election = await electionCollection.findOne({
         _id: new ObjectId(id),
       });
-      res.send(result);
-    });
+      const emailExist = election?.voterEmails?.find(voter =>
+        voter.email === email
+      )
+
+      if (emailExist) {
+        res.send({ voter: true, adminEmail: election.adminEmail })
+      }
+      else {
+        res.send({ error: true, message: 'not a voter' })
+      }
+    })
+
+    // ======send election Data after checking accesskey and password======
+    app.patch('/election-access-password', async (req, res) => {
+      const accesskey = req.body.accessKey;
+      const password = req.body.password;
+      const email = req.body.email
+      const id = req.body.id;
+
+
+      const election = await electionCollection.findOne({ _id: new ObjectId(id) })
+
+      const voter = election.voterEmails.find(voter => voter.email === email)
+      if (voter.accessKey === accesskey && voter.password === password) {
+        res.send(election)
+      }
+
+      else {
+        res.send({ error: true, message: 'wrong access key or password' })
+      }
+    })
 
     // =================get all election per company==============
     app.get("/all-elections/:email", async (req, res) => {
@@ -391,7 +434,7 @@ async function run() {
         questionsData.forEach((question, qIndex) => {
           question.options.forEach((option, index) => {
             rows.push({
-              "Question Title": index > 0 ? '"' :  question.questionTitle,
+              "Question Title": index > 0 ? '"' : question.questionTitle,
               Option: option.option,
               Votes: option.votes,
             });
@@ -419,6 +462,8 @@ async function run() {
       }
     });
     // ===============================website data to exelsheet api end===============
+
+
     // ===============blogs==============
     app.get("/blogs", async (req, res) => {
       const result = await blogCollection.find({}).toArray();
@@ -514,23 +559,26 @@ app.post("/send-message", async (req, res) => {
 // ================================chatbot apis end=================================
 
 // =============================handle elelction status based on starttime endtime============================
-// setInterval(() => {
-//   checkStatus();
-// }, 20000);
+setInterval(() => {
+  checkStatus();
+}, 20000);
 
 async function checkStatus() {
+
+  function getOffset(timeZone) {
+    return parseInt(timeZone.replace('UTC', ''), 10);
+  }
 
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
-      status: "published"
+      status: "published",
     })
     .toArray();
-
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    let currentTime = new Date(Date.now());
-    if (new Date(election.startDate).getTime() <= currentTime.getTime()) {
+    const currentTimeAdjusted = moment.utc().add(getOffset(election.timeZone), 'hours');
+    if (moment(election.startDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "ongoing" } }
@@ -544,11 +592,10 @@ async function checkStatus() {
       status: "ongoing",
     })
     .toArray();
-
-  // Update these elections to 'completed' if endDate is in the past
+  // Update these elections to 'completed'
   for (let election of toBeCompleted) {
-    let currentTime2 = new Date(Date.now());
-    if (new Date(election.endDate).getTime() <= currentTime2.getTime()) {
+    const currentTimeAdjusted = moment.utc().add(getOffset(election.timeZone), 'hours');
+    if (moment(election.endDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "completed" } }
