@@ -291,7 +291,7 @@ async function run() {
                               <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
                               <p style="font-weight:700">Password: ${voter.password}</p>
 							  
-							  <p style="font-weight:700">Your voting link is:  http://localhost:5000/vote?email=${voter.email}&&id=${getElection._id} </p>
+							  <p style="font-weight:700">Your voting link is:  http://localhost:5173/vote?email=${voter.email}&&id=${getElection._id} </p>
                               <hr />
           
                               <p>Thank you for your participation.</p>
@@ -317,13 +317,55 @@ async function run() {
       res.send(result);
     });
 
+    // single election get
     app.get("/election/:id", async (req, res) => {
       const id = req.params.id;
-      const result = await electionCollection.findOne({
+      if (id) {
+        const result = await electionCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      }
+    });
+
+    // ==========single election for voting page query checked by voter email======
+    app.get('/election-voterCheck', async (req, res) => {
+      const id = req.query.id;
+      const email = req.query.email;
+      const election = await electionCollection.findOne({
         _id: new ObjectId(id),
       });
-      res.send(result);
-    });
+      const emailExist = election?.voterEmails?.find(voter =>
+        voter.email === email
+      )
+
+      if (emailExist) {
+        res.send({ voter: true, adminEmail: election.adminEmail })
+      }
+      else {
+        res.send({ error: true, message: 'not a voter' })
+      }
+    })
+
+    // ======send election Data after checking accesskey and password======
+    app.patch('/election-access-password', async (req, res) => {
+      const accesskey = req.body.accessKey;
+      const password = req.body.password;
+      const email = req.body.email
+      const id = req.body.id;
+
+
+      const election = await electionCollection.findOne({ _id: new ObjectId(id) })
+
+      const voter = election.voterEmails.find(voter => voter.email === email)
+      if (voter.accessKey === accesskey && voter.password === password) {
+        res.send(election)
+      }
+
+      else {
+        res.send({ error: true, message: 'wrong access key or password' })
+      }
+    })
 
     // =================get all election per company==============
     app.get("/all-elections/:email", async (req, res) => {
@@ -517,9 +559,9 @@ app.post("/send-message", async (req, res) => {
 // ================================chatbot apis end=================================
 
 // =============================handle elelction status based on starttime endtime============================
-// setInterval(() => {
-//   checkStatus();
-// }, 20000);
+setInterval(() => {
+  checkStatus();
+}, 20000);
 
 async function checkStatus() {
 
