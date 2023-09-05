@@ -12,7 +12,6 @@ const moment = require("moment");
 const port = process.env.PORT || 5000;
 const app = express();
 
-
 // midlewire
 app.use(cors());
 app.use(express.json());
@@ -331,43 +330,41 @@ async function run() {
     });
 
     // ==========single election for voting page query checked by voter email======
-    app.get('/election-voterCheck', async (req, res) => {
+    app.get("/election-voterCheck", async (req, res) => {
       const id = req.query.id;
       const email = req.query.email;
       const election = await electionCollection.findOne({
         _id: new ObjectId(id),
       });
-      const emailExist = election?.voterEmails?.find(voter =>
-        voter.email === email
-      )
+      const emailExist = election?.voterEmails?.find(
+        (voter) => voter.email === email
+      );
 
       if (emailExist) {
-        res.send({ voter: true, adminEmail: election.adminEmail })
+        res.send({ voter: true, adminEmail: election.adminEmail });
+      } else {
+        res.send({ error: true, message: "not a voter" });
       }
-      else {
-        res.send({ error: true, message: 'not a voter' })
-      }
-    })
+    });
 
     // ======send election Data after checking accesskey and password======
-    app.patch('/election-access-password', async (req, res) => {
+    app.patch("/election-access-password", async (req, res) => {
       const accesskey = req.body.accessKey;
       const password = req.body.password;
-      const email = req.body.email
+      const email = req.body.email;
       const id = req.body.id;
 
+      const election = await electionCollection.findOne({
+        _id: new ObjectId(id),
+      });
 
-      const election = await electionCollection.findOne({ _id: new ObjectId(id) })
-
-      const voter = election.voterEmails.find(voter => voter.email === email)
+      const voter = election.voterEmails.find((voter) => voter.email === email);
       if (voter.accessKey === accesskey && voter.password === password) {
-        res.send(election)
+        res.send(election);
+      } else {
+        res.send({ error: true, message: "wrong access key or password" });
       }
-
-      else {
-        res.send({ error: true, message: 'wrong access key or password' })
-      }
-    })
+    });
 
     // =================get all election per company==============
     app.get("/all-elections/:email", async (req, res) => {
@@ -464,10 +461,9 @@ async function run() {
     });
     // ===============================website data to exelsheet api end===============
 
-
     // ===============blogs==============
     app.get("/blogs", async (req, res) => {
-      const result = await blogCollection.find({}).toArray();
+      const result = await blogCollection.find({}).sort({ date: -1 }).toArray();
       res.send(result);
     });
 
@@ -484,9 +480,9 @@ async function run() {
 
       // notifications function
       if (result) {
-        const objectID =result.insertedId
-        const _id = objectID.toHexString()
-        console.log(_id)
+        const objectID = result.insertedId;
+        const _id = objectID.toHexString();
+        console.log(_id);
         // Fetch all user IDs (you should have a 'users' collection in your database)
         const users = await userCollection.find().toArray();
         // Create a notification for each user
@@ -506,7 +502,10 @@ async function run() {
     });
     app.get("/recentBlog", async (req, res) => {
       const query = { status: "recent" };
-      const result = await blogCollection.find(query).toArray();
+      const result = await blogCollection
+        .find(query)
+        .sort({ date: -1 })
+        .toArray();
       res.send(result);
     });
 
@@ -524,7 +523,6 @@ async function run() {
     });
 
     // ======================notification related apis start==========================
-
 
     // get all notification by user email
     app.get("/notifications/:email", async (req, res) => {
@@ -598,9 +596,8 @@ setInterval(() => {
 }, 20000);
 
 async function checkStatus() {
-
   function getOffset(timeZone) {
-    return parseInt(timeZone.replace('UTC', ''), 10);
+    return parseInt(timeZone.replace("UTC", ""), 10);
   }
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
@@ -610,7 +607,9 @@ async function checkStatus() {
     .toArray();
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    const currentTimeAdjusted = moment.utc().add(getOffset(election.timeZone), 'hours');
+    const currentTimeAdjusted = moment
+      .utc()
+      .add(getOffset(election.timeZone), "hours");
     if (moment(election.startDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
@@ -627,7 +626,9 @@ async function checkStatus() {
     .toArray();
   // Update these elections to 'completed'
   for (let election of toBeCompleted) {
-    const currentTimeAdjusted = moment.utc().add(getOffset(election.timeZone), 'hours');
+    const currentTimeAdjusted = moment
+      .utc()
+      .add(getOffset(election.timeZone), "hours");
     if (moment(election.endDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
@@ -644,4 +645,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
-
