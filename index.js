@@ -457,7 +457,19 @@ async function run() {
       res.send(result);
     });
 
+    // ======================notification related apis start============================
 
+    // get all notification by user email
+    app.get("/notifications/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      
+      const result = await notificationCollection.find(query).sort({timestamp: -1}).toArray();
+
+      res.send(result);
+    });
+
+    // ======================notification related apis end============================
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
