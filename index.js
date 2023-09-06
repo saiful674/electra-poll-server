@@ -528,7 +528,8 @@ async function run() {
     app.get("/notifications/:email", async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email };
-      const result = await notificationCollection.find(query).toArray();
+      
+      const result = await notificationCollection.find(query).sort({timestamp: -1}).toArray();
 
       res.send(result);
     });
