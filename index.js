@@ -45,6 +45,8 @@ const client = new MongoClient(uri, {
 });
 
 const electionCollection = client.db("electraPollDB").collection("elections");
+const votersCollection = client.db("electraPollDB").collection("voters");
+const notificationCollection = client.db("electraPollDB").collection("notifications");
 
 async function run() {
   try {
@@ -137,8 +139,6 @@ async function run() {
       res.send(result);
     });
 
-    const votersCollection = client.db("electraPollDB").collection("voters");
-
     // send email related code
 
     const transporter = nodemailer.createTransport({
@@ -230,7 +230,7 @@ async function run() {
         { $set: election }
       );
 
-      if (result && election.status === "published" || "ongoing") {
+      if ((result && election.status === "published") || "ongoing") {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
         });
@@ -329,7 +329,7 @@ async function run() {
     });
 
     // ==========single election for voting page query checked by voter email======
-    app.get('/election-voterCheck', async (req, res) => {
+    app.get("/election-voterCheck", async (req, res) => {
       const id = req.query.id;
       const email = req.query.email;
       const election = await electionCollection.findOne({
@@ -342,30 +342,26 @@ async function run() {
       if (voter) {
         res.send({ isVoter: true, adminEmail: election.adminEmail, voter })
       }
-      else {
-        res.send({ error: true, message: 'not a voter' })
-      }
-    })
+    });
 
     // ======send election Data after checking accesskey and password======
-    app.patch('/election-access-password', async (req, res) => {
+    app.patch("/election-access-password", async (req, res) => {
       const accesskey = req.body.accessKey;
       const password = req.body.password;
-      const email = req.body.email
+      const email = req.body.email;
       const id = req.body.id;
 
+      const election = await electionCollection.findOne({
+        _id: new ObjectId(id),
+      });
 
-      const election = await electionCollection.findOne({ _id: new ObjectId(id) })
-
-      const voter = election.voterEmails.find(voter => voter.email === email)
+      const voter = election.voterEmails.find((voter) => voter.email === email);
       if (voter.accessKey === accesskey && voter.password === password) {
-        res.send(election)
+        res.send(election);
+      } else {
+        res.send({ error: true, message: "wrong access key or password" });
       }
-
-      else {
-        res.send({ error: true, message: 'wrong access key or password' })
-      }
-    })
+    });
 
     // =================get all election per company==============
     app.get("/all-elections/:email", async (req, res) => {
@@ -458,15 +454,13 @@ async function run() {
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         );
         res.send(excelBuffer);
-
       }
     });
     // ===============================website data to exelsheet api end===============
 
-
     // ===============blogs==============
     app.get("/blogs", async (req, res) => {
-      const result = await blogCollection.find({}).toArray();
+      const result = await blogCollection.find({}).sort({ date: -1 }).toArray();
       res.send(result);
     });
 
@@ -480,11 +474,35 @@ async function run() {
     app.post("/blog", async (req, res) => {
       const blog = req.body;
       const result = await blogCollection.insertOne(blog);
+
+      // notifications function
+      if (result) {
+        const objectID = result.insertedId;
+        const _id = objectID.toHexString();
+        console.log(_id);
+        // Fetch all user IDs (you should have a 'users' collection in your database)
+        const users = await userCollection.find().toArray();
+        // Create a notification for each user
+        const notifications = users.map((user) => ({
+          userId: user._id,
+          userEmail: user.email,
+          message: `New blog post '${blog.title}' by ElectraPoll is published!`,
+          timestamp: new Date(),
+          contentURL: `/singleBlog/${_id}`,
+          isRead: false,
+        }));
+        // Insert notifications for all users
+        await notificationCollection.insertMany(notifications);
+      }
+
       res.send(result);
     });
     app.get("/recentBlog", async (req, res) => {
       const query = { status: "recent" };
-      const result = await blogCollection.find(query).toArray();
+      const result = await blogCollection
+        .find(query)
+        .sort({ date: -1 })
+        .toArray();
       res.send(result);
     });
 
@@ -501,7 +519,18 @@ async function run() {
       res.send(result);
     });
 
+    // ======================notification related apis start==========================
 
+    // get all notification by user email
+    app.get("/notifications/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      const result = await notificationCollection.find(query).toArray();
+
+      res.send(result);
+    });
+
+    // ======================notification related apis end============================
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -564,11 +593,9 @@ setInterval(() => {
 }, 20000);
 
 async function checkStatus() {
-
   function getOffset(timeZone) {
-    return parseInt(timeZone.replace('UTC', ''), 10);
+    return parseInt(timeZone.replace("UTC", ""), 10);
   }
-
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
@@ -577,12 +604,28 @@ async function checkStatus() {
     .toArray();
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    const currentTimeAdjusted = moment.utc().add(getOffset(election.timeZone), 'hours');
+    const currentTimeAdjusted = moment
+      .utc()
+      .add(getOffset(election.timeZone), "hours");
     if (moment(election.startDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "ongoing" } }
       );
+
+      // send notificaiton of status change
+      const _id = election._id.toHexString();
+      console.log(_id);
+      const notifications = {
+        userEmail: election.email,
+        message: `Election '${election.title}' started`,
+        timestamp: new Date(),
+        contentURL: `/election/${_id}`,
+        isRead: false,
+      }
+      console.log('status chnaged', notifications);
+
+      await notificationCollection.insertOne(notifications);
     }
   }
 
@@ -594,12 +637,27 @@ async function checkStatus() {
     .toArray();
   // Update these elections to 'completed'
   for (let election of toBeCompleted) {
-    const currentTimeAdjusted = moment.utc().add(getOffset(election.timeZone), 'hours');
+    const currentTimeAdjusted = moment
+      .utc()
+      .add(getOffset(election.timeZone), "hours");
     if (moment(election.endDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "completed" } }
       );
+
+      // send notificaiton of status change
+      const _id = election._id.toHexString();
+      const notifications = {
+        userEmail: election.email,
+        message: `Election '${election.title}' ended`,
+        timestamp: new Date(),
+        contentURL: `/election/${_id}`,
+        isRead: false,
+      }
+      console.log('status chnaged', notifications);
+
+      await notificationCollection.insertOne(notifications);
     }
   }
 }
@@ -611,4 +669,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
-
