@@ -48,6 +48,7 @@ const electionCollection = client.db("electraPollDB").collection("elections");
 const votersCollection = client.db("electraPollDB").collection("voters");
 const notificationCollection = client.db("electraPollDB").collection("notifications");
 
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -397,6 +398,7 @@ async function run() {
       const updateDoc = {
         $set: {
           questions: body.value,
+          voterEmails: body.voterEmails
         },
       };
       const result = await electionCollection.updateOne(filter, updateDoc);
