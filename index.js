@@ -44,6 +44,9 @@ const client = new MongoClient(uri, {
 });
 
 const electionCollection = client.db("electraPollDB").collection("elections");
+const notificationCollection = client
+  .db("electraPollDB")
+  .collection("notifications");
 
 async function run() {
   try {
@@ -229,7 +232,7 @@ async function run() {
         { $set: election }
       );
 
-      if (result && election.status === "published" || "ongoing") {
+      if ((result && election.status === "published") || "ongoing") {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
         });
@@ -358,7 +361,7 @@ async function run() {
       const updateDoc = {
         $set: {
           questions: body.value,
-          voterEmails:body.voterEmails
+          voterEmails: body.voterEmails,
         },
       };
       const result = await electionCollection.updateOne(filter, updateDoc);
@@ -392,7 +395,7 @@ async function run() {
         questionsData.forEach((question, qIndex) => {
           question.options.forEach((option, index) => {
             rows.push({
-              "Question Title": index > 0 ? '"' :  question.questionTitle,
+              "Question Title": index > 0 ? '"' : question.questionTitle,
               Option: option.option,
               Votes: option.votes,
             });
@@ -416,7 +419,6 @@ async function run() {
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         );
         res.send(excelBuffer);
-
       }
     });
     // ===============================website data to exelsheet api end===============
@@ -463,12 +465,36 @@ async function run() {
     app.get("/notifications/:email", async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email };
-      
-      const result = await notificationCollection.find(query).sort({timestamp: -1}).toArray();
+
+      const result = await notificationCollection
+        .find(query)
+        .sort({ timestamp: -1 })
+        .toArray();
 
       res.send(result);
     });
 
+    // update notification read true
+    app.patch("/notifications/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          isRead: true,
+        },
+      };
+
+      const result = await notificationCollection.updateOne(query, updateDoc)
+      res.send(result)
+    });
+
+    // delete a notification
+    app.delete("/notifications/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await notificationCollection.deleteOne(query);
+      res.send(result);
+    });
     // ======================notification related apis end============================
 
     // Send a ping to confirm a successful connection
@@ -532,11 +558,10 @@ app.post("/send-message", async (req, res) => {
 // }, 20000);
 
 async function checkStatus() {
-
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
-      status: "published"
+      status: "published",
     })
     .toArray();
 
@@ -577,4 +602,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
-
