@@ -7,7 +7,6 @@ const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
 const path = require("path");
-const moment = require("moment");
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -45,10 +44,7 @@ const client = new MongoClient(uri, {
 });
 
 const electionCollection = client.db("electraPollDB").collection("elections");
-const votersCollection = client.db("electraPollDB").collection("voters");
-const notificationCollection = client
-  .db("electraPollDB")
-  .collection("notifications");
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -139,6 +135,8 @@ async function run() {
       const result = await userCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
+
+    const votersCollection = client.db("electraPollDB").collection("voters");
 
     // send email related code
 
@@ -231,7 +229,7 @@ async function run() {
         { $set: election }
       );
 
-      if ((result && election.status === "published") || "ongoing") {
+      if (result && election.status === "published" || "ongoing") {
         const getElection = await electionCollection.findOne({
           _id: new ObjectId(id),
         });
@@ -292,7 +290,7 @@ async function run() {
                               <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
                               <p style="font-weight:700">Password: ${voter.password}</p>
 							  
-							  <p style="font-weight:700">Your voting link is:  http://localhost:5173/vote?email=${voter.email}&&id=${getElection._id} </p>
+							  <p style="font-weight:700">Your voting link is:  http://localhost:5000/vote?email=${voter.email}&&id=${getElection._id} </p>
                               <hr />
           
                               <p>Thank you for your participation.</p>
@@ -318,52 +316,12 @@ async function run() {
       res.send(result);
     });
 
-    // single election get
     app.get("/election/:id", async (req, res) => {
       const id = req.params.id;
-      if (id) {
-        const result = await electionCollection.findOne({
-          _id: new ObjectId(id),
-        });
-        res.send(result);
-      }
-    });
-
-    // ==========single election for voting page query checked by voter email======
-    app.get("/election-voterCheck", async (req, res) => {
-      const id = req.query.id;
-      const email = req.query.email;
-      const election = await electionCollection.findOne({
+      const result = await electionCollection.findOne({
         _id: new ObjectId(id),
       });
-      const emailExist = election?.voterEmails?.find(
-        (voter) => voter.email === email
-      );
-
-      if (emailExist) {
-        res.send({ voter: true, adminEmail: election.adminEmail });
-      } else {
-        res.send({ error: true, message: "not a voter" });
-      }
-    });
-
-    // ======send election Data after checking accesskey and password======
-    app.patch("/election-access-password", async (req, res) => {
-      const accesskey = req.body.accessKey;
-      const password = req.body.password;
-      const email = req.body.email;
-      const id = req.body.id;
-
-      const election = await electionCollection.findOne({
-        _id: new ObjectId(id),
-      });
-
-      const voter = election.voterEmails.find((voter) => voter.email === email);
-      if (voter.accessKey === accesskey && voter.password === password) {
-        res.send(election);
-      } else {
-        res.send({ error: true, message: "wrong access key or password" });
-      }
+      res.send(result);
     });
 
     // =================get all election per company==============
@@ -400,6 +358,7 @@ async function run() {
       const updateDoc = {
         $set: {
           questions: body.value,
+          voterEmails:body.voterEmails
         },
       };
       const result = await electionCollection.updateOne(filter, updateDoc);
@@ -433,7 +392,7 @@ async function run() {
         questionsData.forEach((question, qIndex) => {
           question.options.forEach((option, index) => {
             rows.push({
-              "Question Title": index > 0 ? '"' : question.questionTitle,
+              "Question Title": index > 0 ? '"' :  question.questionTitle,
               Option: option.option,
               Votes: option.votes,
             });
@@ -457,13 +416,13 @@ async function run() {
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         );
         res.send(excelBuffer);
+
       }
     });
     // ===============================website data to exelsheet api end===============
-
     // ===============blogs==============
     app.get("/blogs", async (req, res) => {
-      const result = await blogCollection.find({}).sort({ date: -1 }).toArray();
+      const result = await blogCollection.find({}).toArray();
       res.send(result);
     });
 
@@ -477,35 +436,11 @@ async function run() {
     app.post("/blog", async (req, res) => {
       const blog = req.body;
       const result = await blogCollection.insertOne(blog);
-
-      // notifications function
-      if (result) {
-        const objectID = result.insertedId;
-        const _id = objectID.toHexString();
-        console.log(_id);
-        // Fetch all user IDs (you should have a 'users' collection in your database)
-        const users = await userCollection.find().toArray();
-        // Create a notification for each user
-        const notifications = users.map((user) => ({
-          userId: user._id,
-          userEmail: user.email,
-          message: `New blog post '${blog.title}' by ElectraPoll is published!`,
-          timestamp: new Date(),
-          contentURL: `/singleBlog/${_id}`,
-          isRead: false,
-        }));
-        // Insert notifications for all users
-        await notificationCollection.insertMany(notifications);
-      }
-
       res.send(result);
     });
     app.get("/recentBlog", async (req, res) => {
       const query = { status: "recent" };
-      const result = await blogCollection
-        .find(query)
-        .sort({ date: -1 })
-        .toArray();
+      const result = await blogCollection.find(query).toArray();
       res.send(result);
     });
 
@@ -522,7 +457,7 @@ async function run() {
       res.send(result);
     });
 
-    // ======================notification related apis start==========================
+    // ======================notification related apis start============================
 
     // get all notification by user email
     app.get("/notifications/:email", async (req, res) => {
@@ -592,26 +527,23 @@ app.post("/send-message", async (req, res) => {
 // ================================chatbot apis end=================================
 
 // =============================handle elelction status based on starttime endtime============================
-setInterval(() => {
-  checkStatus();
-}, 20000);
+// setInterval(() => {
+//   checkStatus();
+// }, 20000);
 
 async function checkStatus() {
-  function getOffset(timeZone) {
-    return parseInt(timeZone.replace("UTC", ""), 10);
-  }
+
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
-      status: "published",
+      status: "published"
     })
     .toArray();
+
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    const currentTimeAdjusted = moment
-      .utc()
-      .add(getOffset(election.timeZone), "hours");
-    if (moment(election.startDate).isSameOrBefore(currentTimeAdjusted)) {
+    let currentTime = new Date(Date.now());
+    if (new Date(election.startDate).getTime() <= currentTime.getTime()) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "ongoing" } }
@@ -625,12 +557,11 @@ async function checkStatus() {
       status: "ongoing",
     })
     .toArray();
-  // Update these elections to 'completed'
+
+  // Update these elections to 'completed' if endDate is in the past
   for (let election of toBeCompleted) {
-    const currentTimeAdjusted = moment
-      .utc()
-      .add(getOffset(election.timeZone), "hours");
-    if (moment(election.endDate).isSameOrBefore(currentTimeAdjusted)) {
+    let currentTime2 = new Date(Date.now());
+    if (new Date(election.endDate).getTime() <= currentTime2.getTime()) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "completed" } }
@@ -646,3 +577,4 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
+
