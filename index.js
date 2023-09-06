@@ -335,12 +335,12 @@ async function run() {
       const election = await electionCollection.findOne({
         _id: new ObjectId(id),
       });
-      const emailExist = election?.voterEmails?.find(voter =>
-        voter.email === email
+      const voter = election?.voterEmails?.find(v =>
+        v.email === email
       )
 
-      if (emailExist) {
-        res.send({ voter: true, adminEmail: election.adminEmail })
+      if (voter) {
+        res.send({ isVoter: true, adminEmail: election.adminEmail, voter })
       }
       else {
         res.send({ error: true, message: 'not a voter' })
