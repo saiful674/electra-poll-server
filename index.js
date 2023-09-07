@@ -481,7 +481,6 @@ async function run() {
       if (result) {
         const objectID = result.insertedId;
         const _id = objectID.toHexString();
-        console.log(_id);
         // Fetch all user IDs (you should have a 'users' collection in your database)
         const users = await userCollection.find().toArray();
         // Create a notification for each user
@@ -489,7 +488,7 @@ async function run() {
           userId: user._id,
           userEmail: user.email,
           message: `New blog post '${blog.title}' by ElectraPoll is published!`,
-          timestamp: new Date(),
+          timestamp: new Date(Date.UTC(2023, 8, 6)).toISOString(),
           contentURL: `/singleBlog/${_id}`,
           isRead: false,
         }));
@@ -521,17 +520,42 @@ async function run() {
       res.send(result);
     });
 
-    // ======================notification related apis start==========================
+    // ======================notification related apis start============================
 
     // get all notification by user email
     app.get("/notifications/:email", async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email };
-      const result = await notificationCollection.find(query).toArray();
+
+      const result = await notificationCollection
+        .find(query)
+        .sort({ timestamp: -1 })
+        .toArray();
 
       res.send(result);
     });
 
+    // update notification read true
+    app.patch("/notifications/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          isRead: true,
+        },
+      };
+
+      const result = await notificationCollection.updateOne(query, updateDoc)
+      res.send(result)
+    });
+
+    // delete a notification
+    app.delete("/notifications/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await notificationCollection.deleteOne(query);
+      res.send(result);
+    });
     // ======================notification related apis end============================
 
     // Send a ping to confirm a successful connection
@@ -621,7 +645,7 @@ async function checkStatus() {
       const notifications = {
         userEmail: election.email,
         message: `Election '${election.title}' started`,
-        timestamp: new Date(),
+        timestamp: new Date(Date.UTC(2023, 8, 6)).toISOString(),
         contentURL: `/election/${_id}`,
         isRead: false,
       }
@@ -653,7 +677,7 @@ async function checkStatus() {
       const notifications = {
         userEmail: election.email,
         message: `Election '${election.title}' ended`,
-        timestamp: new Date(),
+        timestamp: new Date(Date.UTC(2023, 8, 6)).toISOString(),
         contentURL: `/election/${_id}`,
         isRead: false,
       }
