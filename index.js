@@ -336,6 +336,19 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/election-by-published/:email", async (req, res) => {
+      const { email } = req.params;// Get the current date
+
+    // Find elections starting after the current date
+    const query = {
+      email: email,
+      status:'published',
+    };
+
+      const result = await electionCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.get("/elections", async (req, res) => {
       const { email } = req.query;
       const { status } = req.query;
@@ -353,6 +366,7 @@ async function run() {
 
       res.send(filteredData);
     });
+
 
     app.put("/election-vote-update/:id", async (req, res) => {
       const id = req.params.id;
