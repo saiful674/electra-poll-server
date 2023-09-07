@@ -551,7 +551,7 @@ async function run() {
 
       const result = await notificationCollection
         .find(query)
-        .sort({ timestamp: -1 })
+        .sort({ timestamp: 1 })
         .toArray();
 
       res.send(result);
