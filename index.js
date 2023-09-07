@@ -337,12 +337,19 @@ async function run() {
       const election = await electionCollection.findOne({
         _id: new ObjectId(id),
       });
-      const voter = election?.voterEmails?.find(v =>
-        v.email === email
-      )
 
-      if (voter) {
-        res.send({ isVoter: true, adminEmail: election.adminEmail, voter })
+      if (!election) {
+        res.send({ removedElection: true })
+      }
+
+      else {
+        const voter = election?.voterEmails?.find(v =>
+          v.email === email
+        )
+
+        if (voter) {
+          res.send({ isVoter: true, adminEmail: election.adminEmail, voter })
+        }
       }
     });
 
@@ -376,11 +383,11 @@ async function run() {
     app.get("/election-by-published/:email", async (req, res) => {
       const { email } = req.params;// Get the current date
 
-    // Find elections starting after the current date
-    const query = {
-      email: email,
-      status:'published',
-    };
+      // Find elections starting after the current date
+      const query = {
+        email: email,
+        status: 'published',
+      };
 
       const result = await electionCollection.find(query).toArray();
       res.send(result);
@@ -653,13 +660,15 @@ async function checkStatus() {
         { $set: { status: "ongoing" } }
       );
 
+      const timestamp = new Date().toISOString();
+
       // send notificaiton of status change
       const _id = election._id.toHexString();
       console.log(_id);
       const notifications = {
         userEmail: election.email,
         message: `Election '${election.title}' started`,
-        timestamp: new Date(),
+        timestamp,
         contentURL: `/election/${_id}`,
         isRead: false,
       }
@@ -686,12 +695,13 @@ async function checkStatus() {
         { $set: { status: "completed" } }
       );
 
+      const timestamp = new Date().toISOString();
       // send notificaiton of status change
       const _id = election._id.toHexString();
       const notifications = {
         userEmail: election.email,
         message: `Election '${election.title}' ended`,
-        timestamp: new Date(),
+        timestamp,
         contentURL: `/election/${_id}`,
         isRead: false,
       }
