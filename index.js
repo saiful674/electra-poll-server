@@ -489,7 +489,7 @@ async function run() {
           userId: user._id,
           userEmail: user.email,
           message: `New blog post '${blog.title}' by ElectraPoll is published!`,
-          timestamp: new Date(Date.UTC(2023, 8, 6)).toISOString(),
+          timestamp: new Date(),
           contentURL: `/singleBlog/${_id}`,
           isRead: false,
         }));
@@ -645,7 +645,7 @@ async function checkStatus() {
       const notifications = {
         userEmail: election.email,
         message: `Election '${election.title}' started`,
-        timestamp: new Date(Date.UTC(2023, 8, 6)).toISOString(),
+        timestamp: new Date(),
         contentURL: `/election/${_id}`,
         isRead: false,
       }
@@ -677,7 +677,7 @@ async function checkStatus() {
       const notifications = {
         userEmail: election.email,
         message: `Election '${election.title}' ended`,
-        timestamp: new Date(Date.UTC(2023, 8, 6)).toISOString(),
+        timestamp: new Date(),
         contentURL: `/election/${_id}`,
         isRead: false,
       }
