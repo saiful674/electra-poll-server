@@ -7,6 +7,7 @@ const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const { SessionsClient } = require("dialogflow");
 const path = require("path");
+const moment = require("moment");
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -45,6 +46,7 @@ const client = new MongoClient(uri, {
 });
 
 const electionCollection = client.db("electraPollDB").collection("elections");
+const votersCollection = client.db("electraPollDB").collection("voters");
 const notificationCollection = client
   .db("electraPollDB")
   .collection("notifications");
@@ -139,8 +141,6 @@ async function run() {
       const result = await userCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
-
-    const votersCollection = client.db("electraPollDB").collection("voters");
 
     // send email related code
 
@@ -428,18 +428,72 @@ async function run() {
       }
     });
 
+    // single election get
     app.get("/election/:id", async (req, res) => {
       const id = req.params.id;
-      const result = await electionCollection.findOne({
+      if (id) {
+        const result = await electionCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      }
+    });
+
+    // ==========single election for voting page query checked by voter email======
+    app.get("/election-voterCheck", async (req, res) => {
+      const id = req.query.id;
+      const email = req.query.email;
+      const election = await electionCollection.findOne({
         _id: new ObjectId(id),
       });
-      res.send(result);
+
+      if (!election) {
+        res.send({ removedElection: true });
+      } else {
+        const voter = election?.voterEmails?.find((v) => v.email === email);
+
+        if (voter) {
+          res.send({ isVoter: true, adminEmail: election.adminEmail, voter });
+        }
+      }
+    });
+
+    // ======send election Data after checking accesskey and password======
+    app.patch("/election-access-password", async (req, res) => {
+      const accesskey = req.body.accessKey;
+      const password = req.body.password;
+      const email = req.body.email;
+      const id = req.body.id;
+
+      const election = await electionCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      const voter = election.voterEmails.find((voter) => voter.email === email);
+      if (voter.accessKey === accesskey && voter.password === password) {
+        res.send(election);
+      } else {
+        res.send({ error: true, message: "wrong access key or password" });
+      }
     });
 
     // =================get all election per company==============
     app.get("/all-elections/:email", async (req, res) => {
       const { email } = req.params;
       const query = { email: email };
+      const result = await electionCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/election-by-published/:email", async (req, res) => {
+      const { email } = req.params; // Get the current date
+
+      // Find elections starting after the current date
+      const query = {
+        email: email,
+        status: "published",
+      };
+
       const result = await electionCollection.find(query).toArray();
       res.send(result);
     });
@@ -531,9 +585,10 @@ async function run() {
       }
     });
     // ===============================website data to exelsheet api end===============
+
     // ===============blogs==============
     app.get("/blogs", async (req, res) => {
-      const result = await blogCollection.find({}).toArray();
+      const result = await blogCollection.find({}).sort({ date: -1 }).toArray();
       res.send(result);
     });
 
@@ -547,11 +602,34 @@ async function run() {
     app.post("/blog", async (req, res) => {
       const blog = req.body;
       const result = await blogCollection.insertOne(blog);
+
+      // notifications function
+      if (result) {
+        const objectID = result.insertedId;
+        const _id = objectID.toHexString();
+        // Fetch all user IDs (you should have a 'users' collection in your database)
+        const users = await userCollection.find().toArray();
+        // Create a notification for each user
+        const notifications = users.map((user) => ({
+          userId: user._id,
+          userEmail: user.email,
+          message: `New blog post '${blog.title}' by ElectraPoll is published!`,
+          timestamp: new Date(),
+          contentURL: `/singleBlog/${_id}`,
+          isRead: false,
+        }));
+        // Insert notifications for all users
+        await notificationCollection.insertMany(notifications);
+      }
+
       res.send(result);
     });
     app.get("/recentBlog", async (req, res) => {
       const query = { status: "recent" };
-      const result = await blogCollection.find(query).toArray();
+      const result = await blogCollection
+        .find(query)
+        .sort({ date: -1 })
+        .toArray();
       res.send(result);
     });
 
@@ -577,7 +655,7 @@ async function run() {
 
       const result = await notificationCollection
         .find(query)
-        .sort({ timestamp: -1 })
+        .sort({ timestamp: 1 })
         .toArray();
 
       res.send(result);
@@ -661,26 +739,46 @@ app.post("/send-message", async (req, res) => {
 // ================================chatbot apis end=================================
 
 // =============================handle elelction status based on starttime endtime============================
-// setInterval(() => {
-//   checkStatus();
-// }, 20000);
+setInterval(() => {
+  checkStatus();
+}, 20000);
 
 async function checkStatus() {
+  function getOffset(timeZone) {
+    return parseInt(timeZone.replace("UTC", ""), 10);
+  }
   // Find elections that are 'published' and should now be 'ongoing'
   const toBeOngoing = await electionCollection
     .find({
       status: "published",
     })
     .toArray();
-
   // Update these elections to 'ongoing'
   for (let election of toBeOngoing) {
-    let currentTime = new Date(Date.now());
-    if (new Date(election.startDate).getTime() <= currentTime.getTime()) {
+    const currentTimeAdjusted = moment
+      .utc()
+      .add(getOffset(election.timeZone), "hours");
+    if (moment(election.startDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "ongoing" } }
       );
+
+      const timestamp = new Date().toISOString();
+
+      // send notificaiton of status change
+      const _id = election._id.toHexString();
+      console.log(_id);
+      const notifications = {
+        userEmail: election.email,
+        message: `Election '${election.title}' started`,
+        timestamp,
+        contentURL: `/election/${_id}`,
+        isRead: false,
+      };
+      console.log("status chnaged", notifications);
+
+      await notificationCollection.insertOne(notifications);
     }
   }
 
@@ -690,15 +788,30 @@ async function checkStatus() {
       status: "ongoing",
     })
     .toArray();
-
-  // Update these elections to 'completed' if endDate is in the past
+  // Update these elections to 'completed'
   for (let election of toBeCompleted) {
-    let currentTime2 = new Date(Date.now());
-    if (new Date(election.endDate).getTime() <= currentTime2.getTime()) {
+    const currentTimeAdjusted = moment
+      .utc()
+      .add(getOffset(election.timeZone), "hours");
+    if (moment(election.endDate).isSameOrBefore(currentTimeAdjusted)) {
       await electionCollection.updateOne(
         { _id: new ObjectId(election._id) },
         { $set: { status: "completed" } }
       );
+
+      const timestamp = new Date().toISOString();
+      // send notificaiton of status change
+      const _id = election._id.toHexString();
+      const notifications = {
+        userEmail: election.email,
+        message: `Election '${election.title}' ended`,
+        timestamp,
+        contentURL: `/election/${_id}`,
+        isRead: false,
+      };
+      console.log("status chnaged", notifications);
+
+      await notificationCollection.insertOne(notifications);
     }
   }
 }
