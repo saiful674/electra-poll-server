@@ -10,6 +10,7 @@ const path = require("path");
 
 const port = process.env.PORT || 5000;
 const app = express();
+module.exports = app;
 
 // midlewire
 app.use(cors());
@@ -484,8 +485,8 @@ async function run() {
         },
       };
 
-      const result = await notificationCollection.updateOne(query, updateDoc)
-      res.send(result)
+      const result = await notificationCollection.updateOne(query, updateDoc);
+      res.send(result);
     });
 
     // delete a notification
@@ -507,7 +508,6 @@ async function run() {
     // await client.close();
   }
 }
-run().catch(console.dir);
 
 // =====================================chatbot apis start=======================
 
@@ -602,3 +602,4 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`ElectraPoll server is running on port: ${port}`);
 });
+run().catch(console.dir);
