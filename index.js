@@ -47,8 +47,9 @@ const client = new MongoClient(uri, {
 
 const electionCollection = client.db("electraPollDB").collection("elections");
 const votersCollection = client.db("electraPollDB").collection("voters");
-const notificationCollection = client.db("electraPollDB").collection("notifications");
-
+const notificationCollection = client
+  .db("electraPollDB")
+  .collection("notifications");
 
 async function run() {
   try {
@@ -222,101 +223,209 @@ async function run() {
     });
 
     // -=============== update elections ===============
+    // app.patch("/election/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const election = req.body;
+    //   delete election._id;
+
+    //   const result = await electionCollection.updateOne(
+    //     { _id: new ObjectId(id) },
+    //     { $set: election }
+    //   );
+
+    //   if ((result && election.status === "published") || "ongoing") {
+    //     const getElection = await electionCollection.findOne({
+    //       _id: new ObjectId(id),
+    //     });
+
+    //     const emails = [];
+
+    //     getElection.voterEmails?.map((e) => emails.push(e.email));
+
+    //     for (const voter of getElection.voterEmails) {
+    //       try {
+    //         const mailInfo = await transporter.sendMail({
+    //           from: "codecrafters80@gmail.com",
+    //           to: voter.email,
+    //           subject: `Vote Now: ${getElection?.title}`,
+    //           html: `
+    //           <!DOCTYPE html>
+    //           <html lang="en">
+    //           <head>
+    //               <meta charset="UTF-8">
+    //               <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    //               <title>Email Template</title>
+    //               <style>
+    //                   body {
+    //                       font-family: Arial, sans-serif;
+    //                       margin: 0;
+    //                       padding: 0;
+    //                       border-radius: 15px;
+    //                   }
+
+    //                   @media only screen and (max-width: 576px) {
+    //                       body {
+    //                           width: 100% !important;
+    //                       }
+    //                   }
+
+    //                   @media only screen and (max-width: 376px) {
+    //                       body {
+    //                           width: 100% !important;
+    //                       }
+    //                   }
+    //               </style>
+    //           </head>
+    //           <body style="margin: 0 auto;">
+    //               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    //                   <tr>
+    //                       <td align="center" style="padding: 20px 0;">
+    //                           <img src="https://i.ibb.co/J2k86ts/logo.png" alt="Company Logo" width="150">
+    //                       </td>
+    //                   </tr>
+    //                   <tr>
+    //                       <td bgcolor="#f0fdf4" style="padding: 40px 20px; color: black;line-height:20px">
+    //                           <h3>You are cordially invited to cast your vote in the upcoming ${getElection?.title} election - ${getElection?.organization}.</h3>
+    //                           <p>Hello,</p>
+    //                           <p style="color: black">We are employing a sophisticated online voting system to ensure accuracy and transparency. You have been allocated a unique voting key, granting you one-time access to this process. Please treat this key with confidentiality and avoid sharing or forwarding this communication.</p>
+    //                           <p>Should you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact ${getElection?.email}</p>
+
+    //                           <p style="padding-bottom: 10px">you will need to enter the access key and password to vote. Don't share it with anybody</p>
+    //                           <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
+    //                           <p style="font-weight:700">Password: ${voter.password}</p>
+
+    // 					  <p style="font-weight:700">Your voting link is:  http://localhost:5000/vote?email=${voter.email}&&id=${getElection._id} </p>
+    //                           <hr />
+
+    //                           <p>Thank you for your participation.</p>
+    //                       </td>
+    //                   </tr>
+    //                   <tr>
+    //                       <td bgcolor="#f4f4f4" style="text-align: center; padding: 10px 0;">
+    //                           <p>&copy; 2023 Electro Poll. All rights reserved.</p>
+    //                       </td>
+    //                   </tr>
+    //               </table>
+    //           </body>
+    //           </html>
+    //       `,
+    //         });
+
+    //         console.log("Message sent: %s", mailInfo.messageId);
+    //       } catch (error) {
+    //         console.error("Error sending email:", error);
+    //       }
+    //     }
+    //   }
+    //   res.send(result);
+    // });
+
     app.patch("/election/:id", async (req, res) => {
       const id = req.params.id;
       const election = req.body;
       delete election._id;
 
-      const result = await electionCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: election }
-      );
+      try {
+        const result = await electionCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: election }
+        );
 
-      if ((result && election.status === "published") || "ongoing") {
-        const getElection = await electionCollection.findOne({
-          _id: new ObjectId(id),
-        });
+        if (
+          (result && election.status === "published") ||
+          election.status === "ongoing"
+        ) {
+          const getElection = await electionCollection.findOne({
+            _id: new ObjectId(id),
+          });
 
-        const emails = [];
+          if (!getElection) {
+            return res.status(404).send({ error: "Election not found" });
+          }
 
-        getElection.voterEmails?.map((e) => emails.push(e.email));
+          const emails = [];
 
-        for (const voter of getElection.voterEmails) {
-          try {
-            const mailInfo = await transporter.sendMail({
-              from: "codecrafters80@gmail.com",
-              to: voter.email,
-              subject: `Vote Now: ${getElection?.title}`,
-              html: `
-              <!DOCTYPE html>
-              <html lang="en">
-              <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>Email Template</title>
-                  <style>
-                      body {
-                          font-family: Arial, sans-serif;
-                          margin: 0;
-                          padding: 0;
-                          border-radius: 15px;
-                      }
-          
-                      @media only screen and (max-width: 576px) {
-                          body {
-                              width: 100% !important;
-                          }
-                      }
-          
-                      @media only screen and (max-width: 376px) {
-                          body {
-                              width: 100% !important;
-                          }
-                      }
-                  </style>
-              </head>
-              <body style="margin: 0 auto;">
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                      <tr>
-                          <td align="center" style="padding: 20px 0;">
-                              <img src="https://i.ibb.co/J2k86ts/logo.png" alt="Company Logo" width="150">
-                          </td>
-                      </tr>
-                      <tr>
-                          <td bgcolor="#f0fdf4" style="padding: 40px 20px; color: black;line-height:20px">
-                              <h3>You are cordially invited to cast your vote in the upcoming ${getElection?.title} election - ${getElection?.organization}.</h3>
-                              <p>Hello,</p>
-                              <p style="color: black">We are employing a sophisticated online voting system to ensure accuracy and transparency. You have been allocated a unique voting key, granting you one-time access to this process. Please treat this key with confidentiality and avoid sharing or forwarding this communication.</p>
-                              <p>Should you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact ${getElection?.email}</p>
+          getElection.voterEmails?.map((e) => emails.push(e.email));
 
-                              <p style="padding-bottom: 10px">you will need to enter the access key and password to vote. Don't share it with anybody</p>
-                              <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
-                              <p style="font-weight:700">Password: ${voter.password}</p>
-							  
-							  <p style="font-weight:700">Your voting link is:  http://localhost:5173/vote?email=${voter.email}&&id=${getElection._id} </p>
-                              <hr />
-          
-                              <p>Thank you for your participation.</p>
-                          </td>
-                      </tr>
-                      <tr>
-                          <td bgcolor="#f4f4f4" style="text-align: center; padding: 10px 0;">
-                              <p>&copy; 2023 Electro Poll. All rights reserved.</p>
-                          </td>
-                      </tr>
-                  </table>
-              </body>
-              </html>
-          `,
-            });
-
-            console.log("Message sent: %s", mailInfo.messageId);
-          } catch (error) {
-            console.error("Error sending email:", error);
+          for (const voter of getElection.voterEmails) {
+            try {
+              const mailInfo = await transporter.sendMail({
+                from: "codecrafters80@gmail.com",
+                to: voter.email,
+                subject: `Vote Now: ${getElection?.title}`,
+                html: `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Email Template</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 0;
+                            padding: 0;
+                            border-radius: 15px;
+                        }
+  
+                        @media only screen and (max-width: 576px) {
+                            body {
+                                width: 100% !important;
+                            }
+                        }
+  
+                        @media only screen and (max-width: 376px) {
+                            body {
+                                width: 100% !important;
+                            }
+                        }
+                    </style>
+                </head>
+                <body style="margin: 0 auto;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                            <td align="center" style="padding: 20px 0;">
+                                <img src="https://i.ibb.co/J2k86ts/logo.png" alt="Company Logo" width="150">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td bgcolor="#f0fdf4" style="padding: 40px 20px; color: black;line-height:20px">
+                                <h3>You are cordially invited to cast your vote in the upcoming ${getElection?.title} election - ${getElection?.organization}.</h3>
+                                <p>Hello,</p>
+                                <p style="color: black">We are employing a sophisticated online voting system to ensure accuracy and transparency. You have been allocated a unique voting key, granting you one-time access to this process. Please treat this key with confidentiality and avoid sharing or forwarding this communication.</p>
+                                <p>Should you have any queries or wish to share feedback regarding the election, or if you prefer not to receive subsequent voting notifications, please contact ${getElection?.email}</p>
+  
+                                <p style="padding-bottom: 10px">you will need to enter the access key and password to vote. Don't share it with anybody</p>
+                                <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
+                                <p style="font-weight:700">Password: ${voter.password}</p>
+  
+                  <p style="font-weight:700">Your voting link is:  http://localhost:5000/vote?email=${voter.email}&&id=${getElection._id} </p>
+                                <hr />
+  
+                                <p>Thank you for your participation.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td bgcolor="#f4f4f4" style="text-align: center; padding: 10px 0;">
+                                <p>&copy; 2023 Electro Poll. All rights reserved.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+            `,
+              });
+            } catch (error) {
+              console.error("Error sending email:", error);
+            }
           }
         }
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating election:", error);
+        res.status(500).send({ error: "Internal server error" });
       }
-      res.send(result);
     });
 
     // single election get
@@ -339,16 +448,12 @@ async function run() {
       });
 
       if (!election) {
-        res.send({ removedElection: true })
-      }
-
-      else {
-        const voter = election?.voterEmails?.find(v =>
-          v.email === email
-        )
+        res.send({ removedElection: true });
+      } else {
+        const voter = election?.voterEmails?.find((v) => v.email === email);
 
         if (voter) {
-          res.send({ isVoter: true, adminEmail: election.adminEmail, voter })
+          res.send({ isVoter: true, adminEmail: election.adminEmail, voter });
         }
       }
     });
@@ -381,12 +486,12 @@ async function run() {
     });
 
     app.get("/election-by-published/:email", async (req, res) => {
-      const { email } = req.params;// Get the current date
+      const { email } = req.params; // Get the current date
 
       // Find elections starting after the current date
       const query = {
         email: email,
-        status: 'published',
+        status: "published",
       };
 
       const result = await electionCollection.find(query).toArray();
@@ -411,7 +516,6 @@ async function run() {
       res.send(filteredData);
     });
 
-
     app.put("/election-vote-update/:id", async (req, res) => {
       const id = req.params.id;
       const body = req.body;
@@ -420,7 +524,7 @@ async function run() {
       const updateDoc = {
         $set: {
           questions: body.value,
-          voterEmails: body.voterEmails
+          voterEmails: body.voterEmails,
         },
       };
       const result = await electionCollection.updateOne(filter, updateDoc);
@@ -671,8 +775,8 @@ async function checkStatus() {
         timestamp,
         contentURL: `/election/${_id}`,
         isRead: false,
-      }
-      console.log('status chnaged', notifications);
+      };
+      console.log("status chnaged", notifications);
 
       await notificationCollection.insertOne(notifications);
     }
@@ -704,8 +808,8 @@ async function checkStatus() {
         timestamp,
         contentURL: `/election/${_id}`,
         isRead: false,
-      }
-      console.log('status chnaged', notifications);
+      };
+      console.log("status chnaged", notifications);
 
       await notificationCollection.insertOne(notifications);
     }
@@ -716,7 +820,7 @@ app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
 });
 
-app.listen(port, () => {
-  console.log(`ElectraPoll server is running on port: ${port}`);
-});
+// app.listen(port, () => {
+//   console.log(`ElectraPoll server is running on port: ${port}`);
+// });
 run().catch(console.dir);
