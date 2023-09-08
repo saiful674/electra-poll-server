@@ -599,6 +599,14 @@ async function run() {
       res.send(result);
     });
 
+    app.delete("/blogDelete/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await blogCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
+
     app.post("/blog", async (req, res) => {
       const blog = req.body;
       const result = await blogCollection.insertOne(blog);
@@ -820,7 +828,7 @@ app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
 });
 
-// app.listen(port, () => {
-//   console.log(`ElectraPoll server is running on port: ${port}`);
-// });
+app.listen(port, () => {
+  console.log(`ElectraPoll server is running on port: ${port}`);
+});
 run().catch(console.dir);
