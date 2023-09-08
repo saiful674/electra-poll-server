@@ -655,7 +655,7 @@ async function run() {
 
       const result = await notificationCollection
         .find(query)
-        .sort({ timestamp: 1 })
+        .sort({ timestamp: -1 })
         .toArray();
 
       res.send(result);
@@ -820,7 +820,7 @@ app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
 });
 
-// app.listen(port, () => {
-//   console.log(`ElectraPoll server is running on port: ${port}`);
-// });
+app.listen(port, () => {
+  console.log(`ElectraPoll server is running on port: ${port}`);
+});
 run().catch(console.dir);
