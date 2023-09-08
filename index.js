@@ -399,7 +399,7 @@ async function run() {
                                 <p style="font-weight:700">Access Key: ${voter.accessKey}</p>
                                 <p style="font-weight:700">Password: ${voter.password}</p>
   
-                  <p style="font-weight:700">Your voting link is:  http://localhost:5000/vote?email=${voter.email}&&id=${getElection._id} </p>
+                  <p style="font-weight:700">Your voting link is: https://electrapoll-64bc7.web.app/vote?email=${voter.email}&&id=${getElection._id} </p>
                                 <hr />
   
                                 <p>Thank you for your participation.</p>
@@ -453,7 +453,7 @@ async function run() {
         const voter = election?.voterEmails?.find((v) => v.email === email);
 
         if (voter) {
-          res.send({ isVoter: true, adminEmail: election.adminEmail, voter });
+          res.send({ isVoter: true, adminEmail: election.adminEmail, voter, ballotAccess: election.ballotAccess })
         }
       }
     });
