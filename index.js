@@ -348,7 +348,7 @@ async function run() {
         )
 
         if (voter) {
-          res.send({ isVoter: true, adminEmail: election.adminEmail, voter })
+          res.send({ isVoter: true, adminEmail: election.adminEmail, voter, ballotAccess: election.ballotAccess })
         }
       }
     });
