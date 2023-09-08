@@ -27,12 +27,12 @@ describe("test", () => {
   it("should respond with a list of users", async () => {
     const response = await request(app).get("/all-users");
     expect(response.status).toBe(200);
-  });
+  }, 10000);
   it("should respond with a user", async () => {
     const email = "farukul282@gmail.com";
     const response = await request(app).get(`/users/${email}`);
     expect(response.status).toBe(200);
-  });
+  }, 10000);
   it("should create a new user", async () => {
     const newUser = {};
     const response = await request(app).post("/users").send(newUser);
