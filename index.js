@@ -747,9 +747,9 @@ app.post("/send-message", async (req, res) => {
 // ================================chatbot apis end=================================
 
 // =============================handle elelction status based on starttime endtime============================
-// setInterval(() => {
-//   checkStatus();
-// }, 20000);
+setInterval(() => {
+  checkStatus();
+}, 20000);
 
 async function checkStatus() {
   function getOffset(timeZone) {
@@ -828,7 +828,7 @@ app.get("/", (req, res) => {
   res.send("Welcome to ElectraPoll Server");
 });
 
-// app.listen(port, () => {
-//   console.log(`ElectraPoll server is running on port: ${port}`);
-// });
+app.listen(port, () => {
+  console.log(`ElectraPoll server is running on port: ${port}`);
+});
 run().catch(console.dir);
