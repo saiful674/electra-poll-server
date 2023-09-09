@@ -47,6 +47,7 @@ const client = new MongoClient(uri, {
 
 const electionCollection = client.db("electraPollDB").collection("elections");
 const votersCollection = client.db("electraPollDB").collection("voters");
+const reviewCollection = client.db("electraPollDB").collection("reviews");
 const notificationCollection = client
   .db("electraPollDB")
   .collection("notifications");
@@ -453,7 +454,12 @@ async function run() {
         const voter = election?.voterEmails?.find((v) => v.email === email);
 
         if (voter) {
-          res.send({ isVoter: true, adminEmail: election.adminEmail, voter, ballotAccess: election.ballotAccess })
+          res.send({
+            isVoter: true,
+            adminEmail: election.adminEmail,
+            voter,
+            ballotAccess: election.ballotAccess,
+          });
         }
       }
     });
@@ -691,6 +697,16 @@ async function run() {
       res.send(result);
     });
     // ======================notification related apis end============================
+
+    // ====================== user-review related apis start ==========================
+    // user-reviews data
+    app.post("/user-review", async (req, res) => {
+      const body = req.body;
+      const result = await reviewCollection.insertOne(body);
+      res.send(result);
+    });
+
+    // ====================== user-review related apis end ============================
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
