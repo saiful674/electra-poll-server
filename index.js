@@ -699,10 +699,16 @@ async function run() {
     // ======================notification related apis end============================
 
     // ====================== user-review related apis start ==========================
-    // user-reviews data
+    // post user-reviews data
     app.post("/user-review", async (req, res) => {
       const body = req.body;
       const result = await reviewCollection.insertOne(body);
+      res.send(result);
+    });
+
+    // get user-reviews data
+    app.get("/user-review", async (req, res) => {
+      const result = await reviewCollection.find().toArray();
       res.send(result);
     });
 
