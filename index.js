@@ -658,6 +658,21 @@ async function run() {
       };
       const result = await blogCollection.updateOne(filter, updateComment);
       res.send(result);
+
+      // notification function
+      if (result) {
+        const findBlog = await blogCollection.findOne(filter);
+        
+        const notification = {
+          userEmail: findBlog.email,
+          message: `${comment.username} comments on your post: ${findBlog.title} `,
+          timestamp: new Date(),
+          contentURL: `/singleBlog/${id}`,
+          isRead: false,
+        };
+
+        await notificationCollection.insertOne(notification)
+      }
     });
 
     // ======================notification related apis start============================
