@@ -252,6 +252,35 @@ async function run() {
       }
     });
 
+    // add  excel voters
+    app.patch('/add-excel-voters', async(req,res)=>{
+      const voterInfo = req.body
+      const votersList = await votersCollection.findOne({
+        email: voterInfo.email,
+      });
+
+      const givenVoters = votersList ? [...votersList.voters, ...voterInfo.voterEmails] : [...voterInfo.voterEmails]
+      const voters = givenVoters.reduce((acc, voter) => {
+        if (!acc.emails.has(voter.voterEmail)) {
+          acc.emails.add(voter.voterEmail);
+          acc.result.push(voter);
+        }
+        return acc;
+      }, { emails: new Set(), result: [] }).result;
+
+      const result = await votersCollection.updateOne(
+        { email: voterInfo.email },
+        { $set:{voters: voters} },
+        { upsert: true }
+      );
+      if(result.matchedCount > 0 && result.modifiedCount === 0 && result.upsertedCount === 0){
+        res.send({exist: true})
+      }
+      else{
+        res.send(result);
+      }
+    })
+
     // delete voter api
     app.patch("/voters/:id", async (req, res) => {
       const id = req.params.id;
@@ -750,6 +779,21 @@ async function run() {
       };
       const result = await blogCollection.updateOne(filter, updateComment);
       res.send(result);
+
+      // notification function
+      if (result) {
+        const findBlog = await blogCollection.findOne(filter);
+        
+        const notification = {
+          userEmail: findBlog.email,
+          message: `${comment.username} comments on your post: ${findBlog.title} `,
+          timestamp: new Date(),
+          contentURL: `/singleBlog/${id}`,
+          isRead: false,
+        };
+
+        await notificationCollection.insertOne(notification)
+      }
     });
 
     // ======================notification related apis start============================
@@ -791,10 +835,16 @@ async function run() {
     // ======================notification related apis end============================
 
     // ====================== user-review related apis start ==========================
-    // user-reviews data
+    // post user-reviews data
     app.post("/user-review", async (req, res) => {
       const body = req.body;
       const result = await reviewCollection.insertOne(body);
+      res.send(result);
+    });
+
+    // get user-reviews data
+    app.get("/user-review", async (req, res) => {
+      const result = await reviewCollection.find().toArray();
       res.send(result);
     });
 
