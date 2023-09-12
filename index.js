@@ -60,7 +60,14 @@ async function run() {
     const database = client.db("electraPollDB");
     const userCollection = database.collection("users");
     const blogCollection = database.collection("blogs");
-
+    const pullCollection = database.collection("vote");
+ 
+    
+    
+    
+    // app.listen(port, () => {
+    //   console.log(`Server is running on port ${port}`);
+    // });
     // // .............Authentication related api
     // app.get("/users/:email", async (req, res) => {
     //   const email = req.params.email;
@@ -69,6 +76,63 @@ async function run() {
     //   const result = await userCollection.find(query).toArray();
     //   res.send(result);
     // });
+
+
+    app.post("/vote", async (req, res) => {
+      try {
+        // Assuming you want to extract the candidate and userEmail from the request body
+        const { candidate, userEmail } = req.body;
+    
+        // Check if candidate and userEmail are provided
+        if (!candidate || !userEmail) {
+          return res.status(400).json({ error: 'Both candidate and userEmail are required' });
+        }
+    
+        // Check if the user has already voted
+        const existingVote = await pullCollection.findOne({ userEmail });
+    
+        if (existingVote) {
+          // If the user has already voted, update their vote
+          const updatedVote = await pullCollection.updateOne(
+            { userEmail },
+            { $set: { candidate, timestamp: new Date() } }
+          );
+    
+          if (updatedVote.modifiedCount === 1) {
+            // Update the vote count
+            votes[candidate] = (votes[candidate] || 0) + 1;
+            // Decrement the vote count for the previously selected candidate
+            votes[existingVote.candidate] = (votes[existingVote.candidate] || 1) - 1;
+    
+            return res.status(200).json({ message: 'Vote updated successfully' });
+          } else {
+            return res.status(500).json({ error: 'Failed to update the vote' });
+          }
+        } else {
+          // If the user has not voted before, insert a new vote
+          const result = await pullCollection.insertOne({
+            candidate,
+            userEmail,
+            timestamp: new Date(), // You can add a timestamp if needed
+          });
+    
+          if (result.insertedCount === 1) {
+            // Update the vote count
+            votes[candidate] = (votes[candidate] || 0) + 1;
+    
+            return res.status(201).json({ message: 'Vote recorded successfully' });
+          } else {
+            return res.status(500).json({ error: 'Failed to record the vote' });
+          }
+        }
+      } catch (error) {
+        console.error('Error recording/updating vote:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+    
+
+
     // Get single user by email
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
