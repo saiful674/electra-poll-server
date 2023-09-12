@@ -46,8 +46,11 @@ const client = new MongoClient(uri, {
 });
 
 const electionCollection = client.db("electraPollDB").collection("elections");
+const commentCollection = client.db("electraPollDB").collection("comments");
 const votersCollection = client.db("electraPollDB").collection("voters");
 const reviewCollection = client.db("electraPollDB").collection("reviews");
+const replyCollection = client.db("electraPollDB").collection("reply");
+
 const notificationCollection = client
   .db("electraPollDB")
   .collection("notifications");
@@ -627,6 +630,16 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/getBlog", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await blogCollection
+        .find(query)
+        .sort({ date: -1 })
+        .toArray();
+      res.send(result);
+    });
+
     app.get("/blog/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -676,33 +689,78 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/comment/:id", async (req, res) => {
-      const id = req.params.id;
-      const comment = req.body;
-      const filter = { _id: new ObjectId(id) };
-      const updateComment = {
-        $push: {
-          comments: comment,
-        },
-      };
-      const result = await blogCollection.updateOne(filter, updateComment);
-      res.send(result);
+    app.post("/comment", async (req, res) => {
+      const id = req.query.id;
+      const body = req.body;
+      body.blogId = id;
+      const filter = { _id: id };
 
-      // notification function
+      const result = await commentCollection.insertOne(body);
+      res.send(result);
       if (result) {
         const findBlog = await blogCollection.findOne(filter);
-        
         const notification = {
-          userEmail: findBlog.email,
-          message: `${comment.username} comments on your post: ${findBlog.title} `,
+          userEmail: findBlog?.email,
+          message: `${findBlog?.comment?.username} comments on your post: ${findBlog?.title} `,
           timestamp: new Date(),
           contentURL: `/singleBlog/${id}`,
           isRead: false,
         };
 
-        await notificationCollection.insertOne(notification)
+        await notificationCollection.insertOne(notification);
       }
     });
+
+    app.get("/comment/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = {
+        blogId: id,
+      };
+      const result = await commentCollection.find(filter).toArray();
+      res.send(result);
+    });
+    app.post("/reply", async (req, res) => {
+      const reply = req.body;
+      const result = await replyCollection.insertOne(reply);
+      res.send(result);
+    });
+
+    app.get("/reply/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = {
+        blogId: id,
+      };
+      const result = await replyCollection.find(filter).toArray();
+      res.send(result);
+    });
+    // app.post("/comment/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const comment = req.body;
+    //   const filter = { _id: new ObjectId(id) };
+    //   const updateComment = {
+    //     $push: {
+    //       comments: comment,
+    //     },
+    //   };
+    //   console.log(comment);
+    //   const result = await blogCollection.updateOne(filter, updateComment);
+    //   res.send(result);
+
+    //   // notification function
+    //   if (result) {
+    //     const findBlog = await blogCollection.findOne(filter);
+
+    //     const notification = {
+    //       userEmail: findBlog.email,
+    //       message: `${comment.username} comments on your post: ${findBlog.title} `,
+    //       timestamp: new Date(),
+    //       contentURL: `/singleBlog/${id}`,
+    //       isRead: false,
+    //     };
+
+    //     await notificationCollection.insertOne(notification);
+    //   }
+    // });
 
     // ======================notification related apis start============================
 
