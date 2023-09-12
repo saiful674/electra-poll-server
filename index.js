@@ -187,6 +187,35 @@ async function run() {
       }
     });
 
+    // add  excel voters
+    app.patch('/add-excel-voters', async(req,res)=>{
+      const voterInfo = req.body
+      const votersList = await votersCollection.findOne({
+        email: voterInfo.email,
+      });
+
+      const givenVoters = votersList ? [...votersList.voters, ...voterInfo.voterEmails] : [...voterInfo.voterEmails]
+      const voters = givenVoters.reduce((acc, voter) => {
+        if (!acc.emails.has(voter.voterEmail)) {
+          acc.emails.add(voter.voterEmail);
+          acc.result.push(voter);
+        }
+        return acc;
+      }, { emails: new Set(), result: [] }).result;
+
+      const result = await votersCollection.updateOne(
+        { email: voterInfo.email },
+        { $set:{voters: voters} },
+        { upsert: true }
+      );
+      if(result.matchedCount > 0 && result.modifiedCount === 0 && result.upsertedCount === 0){
+        res.send({exist: true})
+      }
+      else{
+        res.send(result);
+      }
+    })
+
     // delete voter api
     app.patch("/voters/:id", async (req, res) => {
       const id = req.params.id;
