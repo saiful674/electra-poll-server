@@ -47,6 +47,7 @@ const client = new MongoClient(uri, {
 
 const electionCollection = client.db("electraPollDB").collection("elections");
 const votersCollection = client.db("electraPollDB").collection("voters");
+const reviewCollection = client.db("electraPollDB").collection("reviews");
 const notificationCollection = client
   .db("electraPollDB")
   .collection("notifications");
@@ -482,7 +483,12 @@ async function run() {
         const voter = election?.voterEmails?.find((v) => v.email === email);
 
         if (voter) {
-          res.send({ isVoter: true, adminEmail: election.adminEmail, voter, ballotAccess: election.ballotAccess })
+          res.send({
+            isVoter: true,
+            adminEmail: election.adminEmail,
+            voter,
+            ballotAccess: election.ballotAccess,
+          });
         }
       }
     });
@@ -681,6 +687,21 @@ async function run() {
       };
       const result = await blogCollection.updateOne(filter, updateComment);
       res.send(result);
+
+      // notification function
+      if (result) {
+        const findBlog = await blogCollection.findOne(filter);
+        
+        const notification = {
+          userEmail: findBlog.email,
+          message: `${comment.username} comments on your post: ${findBlog.title} `,
+          timestamp: new Date(),
+          contentURL: `/singleBlog/${id}`,
+          isRead: false,
+        };
+
+        await notificationCollection.insertOne(notification)
+      }
     });
 
     // ======================notification related apis start============================
@@ -692,7 +713,7 @@ async function run() {
 
       const result = await notificationCollection
         .find(query)
-        .sort({ timestamp: 1 })
+        .sort({ timestamp: -1 })
         .toArray();
 
       res.send(result);
@@ -720,6 +741,22 @@ async function run() {
       res.send(result);
     });
     // ======================notification related apis end============================
+
+    // ====================== user-review related apis start ==========================
+    // post user-reviews data
+    app.post("/user-review", async (req, res) => {
+      const body = req.body;
+      const result = await reviewCollection.insertOne(body);
+      res.send(result);
+    });
+
+    // get user-reviews data
+    app.get("/user-review", async (req, res) => {
+      const result = await reviewCollection.find().toArray();
+      res.send(result);
+    });
+
+    // ====================== user-review related apis end ============================
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
