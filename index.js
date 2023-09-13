@@ -372,6 +372,8 @@ async function run() {
           { $set: election }
         );
 
+        res.send(result);
+
         if (
           (result && election.status === "published") ||
           election.status === "ongoing"
@@ -387,7 +389,6 @@ async function run() {
           const emails = [];
 
           getElection.voterEmails?.map((e) => emails.push(e.email));
-
           for (const voter of getElection.voterEmails) {
             try {
               const mailInfo = await transporter.sendMail({
@@ -462,7 +463,6 @@ async function run() {
           }
         }
 
-        res.send(result);
       } catch (error) {
         console.error("Error updating election:", error);
         res.status(500).send({ error: "Internal server error" });
@@ -704,7 +704,6 @@ async function run() {
       const filter = { _id: id };
 
       const result = await commentCollection.insertOne(body);
-      res.send(result);
       if (result) {
         const findBlog = await blogCollection.findOne(filter);
         const notification = {
@@ -717,6 +716,7 @@ async function run() {
 
         await notificationCollection.insertOne(notification);
       }
+      res.send(result);
     });
 
     app.get("/comment/:id", async (req, res) => {
