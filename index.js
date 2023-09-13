@@ -46,8 +46,11 @@ const client = new MongoClient(uri, {
 });
 
 const electionCollection = client.db("electraPollDB").collection("elections");
+const commentCollection = client.db("electraPollDB").collection("comments");
 const votersCollection = client.db("electraPollDB").collection("voters");
 const reviewCollection = client.db("electraPollDB").collection("reviews");
+const replyCollection = client.db("electraPollDB").collection("reply");
+
 const notificationCollection = client
   .db("electraPollDB")
   .collection("notifications");
@@ -253,33 +256,41 @@ async function run() {
     });
 
     // add  excel voters
-    app.patch('/add-excel-voters', async(req,res)=>{
-      const voterInfo = req.body
+    app.patch("/add-excel-voters", async (req, res) => {
+      const voterInfo = req.body;
       const votersList = await votersCollection.findOne({
         email: voterInfo.email,
       });
 
-      const givenVoters = votersList ? [...votersList.voters, ...voterInfo.voterEmails] : [...voterInfo.voterEmails]
-      const voters = givenVoters.reduce((acc, voter) => {
-        if (!acc.emails.has(voter.voterEmail)) {
-          acc.emails.add(voter.voterEmail);
-          acc.result.push(voter);
-        }
-        return acc;
-      }, { emails: new Set(), result: [] }).result;
+      const givenVoters = votersList
+        ? [...votersList.voters, ...voterInfo.voterEmails]
+        : [...voterInfo.voterEmails];
+      const voters = givenVoters.reduce(
+        (acc, voter) => {
+          if (!acc.emails.has(voter.voterEmail)) {
+            acc.emails.add(voter.voterEmail);
+            acc.result.push(voter);
+          }
+          return acc;
+        },
+        { emails: new Set(), result: [] }
+      ).result;
 
       const result = await votersCollection.updateOne(
         { email: voterInfo.email },
-        { $set:{voters: voters} },
+        { $set: { voters: voters } },
         { upsert: true }
       );
-      if(result.matchedCount > 0 && result.modifiedCount === 0 && result.upsertedCount === 0){
-        res.send({exist: true})
-      }
-      else{
+      if (
+        result.matchedCount > 0 &&
+        result.modifiedCount === 0 &&
+        result.upsertedCount === 0
+      ) {
+        res.send({ exist: true });
+      } else {
         res.send(result);
       }
-    })
+    });
 
     // delete voter api
     app.patch("/voters/:id", async (req, res) => {
@@ -425,6 +436,8 @@ async function run() {
           { $set: election }
         );
 
+        res.send(result);
+
         if (
           (result && election.status === "published") ||
           election.status === "ongoing"
@@ -440,7 +453,6 @@ async function run() {
           const emails = [];
 
           getElection.voterEmails?.map((e) => emails.push(e.email));
-
           for (const voter of getElection.voterEmails) {
             try {
               const mailInfo = await transporter.sendMail({
@@ -515,7 +527,6 @@ async function run() {
           }
         }
 
-        res.send(result);
       } catch (error) {
         console.error("Error updating election:", error);
         res.status(500).send({ error: "Internal server error" });
@@ -719,6 +730,16 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/getBlog", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await blogCollection
+        .find(query)
+        .sort({ date: -1 })
+        .toArray();
+      res.send(result);
+    });
+
     app.get("/blog/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -768,33 +789,104 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/comment/:id", async (req, res) => {
-      const id = req.params.id;
-      const comment = req.body;
-      const filter = { _id: new ObjectId(id) };
-      const updateComment = {
-        $push: {
-          comments: comment,
-        },
-      };
-      const result = await blogCollection.updateOne(filter, updateComment);
-      res.send(result);
+    app.post("/comment", async (req, res) => {
+      const id = req.query.id;
+      const body = req.body;
+      body.blogId = id;
+      const filter = { _id: id };
 
-      // notification function
+      const result = await commentCollection.insertOne(body);
       if (result) {
         const findBlog = await blogCollection.findOne(filter);
-        
         const notification = {
-          userEmail: findBlog.email,
-          message: `${comment.username} comments on your post: ${findBlog.title} `,
+          userEmail: findBlog?.email,
+          message: `${findBlog?.comment?.username} comments on your post: ${findBlog?.title} `,
           timestamp: new Date(),
           contentURL: `/singleBlog/${id}`,
           isRead: false,
         };
 
-        await notificationCollection.insertOne(notification)
+        await notificationCollection.insertOne(notification);
+      }
+      res.send(result);
+    });
+
+    app.get("/comment/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = {
+        blogId: id,
+      };
+      const result = await commentCollection.find(filter).toArray();
+      res.send(result);
+    });
+    app.post("/reply", async (req, res) => {
+      const reply = req.body;
+      const result = await replyCollection.insertOne(reply);
+      res.send(result);
+    });
+
+    app.get("/reply/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = {
+        blogId: id,
+      };
+      const result = await replyCollection.find(filter).toArray();
+      res.send(result);
+    });
+    app.delete("/deleteComment/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const commentDeletionResult = await commentCollection.deleteOne(filter);
+
+        if (commentDeletionResult.deletedCount === 1) {
+          const deleteReplyResult = await replyCollection.deleteOne({
+            commentId: id,
+          });
+          res
+            .status(200)
+            .json({ success: true, message: "Comment and replies deleted" });
+        } else {
+          res
+            .status(404)
+            .json({ success: false, message: "Comment not found" });
+        }
+      } catch (error) {
+        console.error("Error deleting comment:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Internal server error" });
       }
     });
+
+    // app.post("/comment/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const comment = req.body;
+    //   const filter = { _id: new ObjectId(id) };
+    //   const updateComment = {
+    //     $push: {
+    //       comments: comment,
+    //     },
+    //   };
+    //   console.log(comment);
+    //   const result = await blogCollection.updateOne(filter, updateComment);
+    //   res.send(result);
+
+    //   // notification function
+    //   if (result) {
+    //     const findBlog = await blogCollection.findOne(filter);
+
+    //     const notification = {
+    //       userEmail: findBlog.email,
+    //       message: `${comment.username} comments on your post: ${findBlog.title} `,
+    //       timestamp: new Date(),
+    //       contentURL: `/singleBlog/${id}`,
+    //       isRead: false,
+    //     };
+
+    //     await notificationCollection.insertOne(notification);
+    //   }
+    // });
 
     // ======================notification related apis start============================
 
