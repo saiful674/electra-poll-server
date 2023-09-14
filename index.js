@@ -594,6 +594,16 @@ async function run() {
       const result = await electionCollection.find(query).toArray();
       res.send(result);
     });
+    app.get("/all-elections/admin/:email", async (req, res) => {
+      const { email } = req.params;
+      const user = await userCollection.findOne({ email: email });
+      console.log(user)
+      if (!user || user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. You are not an admin." });
+      }
+      const result = await electionCollection.find().toArray();
+      res.send(result);
+    });
 
     app.get("/election-by-published/:email", async (req, res) => {
       const { email } = req.params; // Get the current date
