@@ -374,7 +374,7 @@ async function run() {
 
         res.send(result);
 
-        if (election.status === "published" || "ongoing") {
+        if (election.status === "published" || election.status ===  "ongoing") {
           console.log('working')
           const getElection = await electionCollection.findOne({
             _id: new ObjectId(id),
@@ -386,7 +386,7 @@ async function run() {
           }
 
           const emails = [];
-
+  
           getElection.voterEmails?.map((e) => emails.push(e.email));
 
           for (const voter of getElection.voterEmails) {
@@ -463,7 +463,6 @@ async function run() {
           }
         }
 
-        res.send(result);
       } catch (error) {
         console.error("Error updating election:", error);
         res.status(500).send({ error: "Internal server error" });
