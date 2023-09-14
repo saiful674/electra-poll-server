@@ -372,15 +372,16 @@ async function run() {
           { $set: election }
         );
 
-        if (
-          (result && election.status === "published") ||
-          election.status === "ongoing"
-        ) {
+        res.send(result);
+
+        if (election.status === "published" || "ongoing") {
+          console.log('working')
           const getElection = await electionCollection.findOne({
             _id: new ObjectId(id),
           });
 
           if (!getElection) {
+            console.log('no elctions')
             return res.status(404).send({ error: "Election not found" });
           }
 
@@ -526,6 +527,7 @@ async function run() {
     // =================get all election per company==============
     app.get("/all-elections/:email", async (req, res) => {
       const { email } = req.params;
+      console.log(email)
       const query = { email: email };
       const result = await electionCollection.find(query).toArray();
       res.send(result);
