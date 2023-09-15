@@ -436,8 +436,6 @@ async function run() {
           { $set: election }
         );
 
-        res.send(result);
-
         if (election.status === "published" || election.status ===  "ongoing") {
           console.log('working')
           const getElection = await electionCollection.findOne({
@@ -521,14 +519,15 @@ async function run() {
                     </html>
                 `
                 });
-                
-                await Promise.all(emailPromises);
+
                 // return mailInfo;
             } catch (error) {
                 console.error("Error sending email to:", voter.email, "Error:", error);
             }
         });
-        }
+        await Promise.all(emailPromises);
+      }
+      res.send(result);
 
       } catch (error) {
         console.error("Error updating election:", error);
