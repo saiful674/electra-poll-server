@@ -1,5 +1,6 @@
 const express = require("express");
 const schedule = require("node-schedule");
+var jwt = require('jsonwebtoken');
 const cors = require("cors");
 require("dotenv").config();
 const xlsx = require("xlsx");
@@ -55,6 +56,24 @@ const notificationCollection = client
   .db("electraPollDB")
   .collection("notifications");
 
+const varifyJWT = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1]
+
+  if (!token) {
+    return res.status(401).send({ error: true, message: "unauthorized access request 1" })
+  }
+
+  else {
+    jwt.verify(token, process.env.secret_key, (err, decoded) => {
+      if (err) {
+        res.status(401).send({ error: true, message: 'unauthorized access request 2' })
+      }
+      req.decoded = decoded
+      next()
+    })
+  }
+}
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -64,10 +83,10 @@ async function run() {
     const userCollection = database.collection("users");
     const blogCollection = database.collection("blogs");
     const pullCollection = database.collection("vote");
- 
-    
-    
-    
+
+
+
+
     // app.listen(port, () => {
     //   console.log(`Server is running on port ${port}`);
     // });
@@ -80,33 +99,51 @@ async function run() {
     //   res.send(result);
     // });
 
+    // ============================= jwt verification middleware========================
+    app.post('/jwt', async (req, res) => {
+      const user = req.body
+      const token = jwt.sign(user, process.env.secret_key, { expiresIn: '1d' })
+      res.send({ token })
+    })
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email
+      const user = await userCollection.findOne({ email: email })
+      if (user && user.role !== 'admin') {
+        res.status(403).send({ error: true, message: 'forbidden access request' })
+      }
+      else {
+        next()
+      }
+    }
+
 
     app.post("/vote", async (req, res) => {
       try {
         // Assuming you want to extract the candidate and userEmail from the request body
         const { candidate, userEmail } = req.body;
-    
+
         // Check if candidate and userEmail are provided
         if (!candidate || !userEmail) {
           return res.status(400).json({ error: 'Both candidate and userEmail are required' });
         }
-    
+
         // Check if the user has already voted
         const existingVote = await pullCollection.findOne({ userEmail });
-    
+
         if (existingVote) {
           // If the user has already voted, update their vote
           const updatedVote = await pullCollection.updateOne(
             { userEmail },
             { $set: { candidate, timestamp: new Date() } }
           );
-    
+
           if (updatedVote.modifiedCount === 1) {
             // Update the vote count
             votes[candidate] = (votes[candidate] || 0) + 1;
             // Decrement the vote count for the previously selected candidate
             votes[existingVote.candidate] = (votes[existingVote.candidate] || 1) - 1;
-    
+
             return res.status(200).json({ message: 'Vote updated successfully' });
           } else {
             return res.status(500).json({ error: 'Failed to update the vote' });
@@ -118,11 +155,11 @@ async function run() {
             userEmail,
             timestamp: new Date(), // You can add a timestamp if needed
           });
-    
+
           if (result.insertedCount === 1) {
             // Update the vote count
             votes[candidate] = (votes[candidate] || 0) + 1;
-    
+
             return res.status(201).json({ message: 'Vote recorded successfully' });
           } else {
             return res.status(500).json({ error: 'Failed to record the vote' });
@@ -133,7 +170,7 @@ async function run() {
         return res.status(500).json({ error: 'Internal server error' });
       }
     });
-    
+
 
 
     // Get single user by email
@@ -178,7 +215,7 @@ async function run() {
     });
 
     // get all users
-    app.get("/all-users", async (req, res) => {
+    app.get("/all-users", varifyJWT, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -619,29 +656,29 @@ async function run() {
       const result = await electionCollection.find(query).toArray();
       res.send(result);
     });
-    
+
     app.get("/election-by-ongoing/:email", async (req, res) => {
       const { email } = req.params;// Get the current date
 
-    // Find elections starting after the current date
-    const query = {
-      email: email,
-      status:'ongoing',
-    };
+      // Find elections starting after the current date
+      const query = {
+        email: email,
+        status: 'ongoing',
+      };
 
       const result = await electionCollection.find(query).toArray();
       res.send(result);
     });
-    
+
 
     app.get("/election-by-completed/:email", async (req, res) => {
       const { email } = req.params;// Get the current date
 
-    // Find elections starting after the current date
-    const query = {
-      email: email,
-      status:'completed',
-    };
+      // Find elections starting after the current date
+      const query = {
+        email: email,
+        status: 'completed',
+      };
 
       const result = await electionCollection.find(query).toArray();
       res.send(result);
